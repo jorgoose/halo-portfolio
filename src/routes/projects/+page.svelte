@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+
   // Radio widget variables
   let radioExpanded = false;
   let audioContext: AudioContext;
@@ -11,6 +12,9 @@
   let audioElement: HTMLAudioElement;
   let fadeOpacity = 1; // For smooth transitions
   let isTransitioning = false;
+  let speakerInterval: ReturnType<typeof setInterval>;
+  let fadeOutTimer: ReturnType<typeof setInterval>;
+  let fadeInTimer: ReturnType<typeof setInterval>;
   const projects = [
     { title: 'Hachiko', image: '/projects/hachiko-logo.jpg', description: 'Developer-friendly platform making Japanese financial data accessible through clean APIs and structured datasets. Transforms complex FSA disclosures into usable formats for developers. Streamlines access to market data. Built with SvelteKit, Rust, and Go.' },
     { title: 'EveryNetNet', image: '/projects/everynetnet-logo.jpg', description: 'Investment research SaaS for finding net-net companies trading below net current asset value. Helps investors discover undervalued opportunities in the market through comprehensive screening tools and analysis. Built with Next.js, Go, Google Cloud Platform, and Stripe API.' },
@@ -48,31 +52,34 @@
       
       // Start playing audio and expand
       audioElement = new Audio('/audio/projects_cortana_and_chief.mp3');
-      
+
       // Initialize audio context for visualization
-      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
+      try {
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      } catch {
+        return;
+      }
+
       // Resume audio context if suspended
       if (audioContext.state === 'suspended') {
         audioContext.resume();
       }
-      
+
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       analyser.smoothingTimeConstant = 0.8;
-      
+
       audioSource = audioContext.createMediaElementSource(audioElement);
       audioSource.connect(analyser);
       analyser.connect(audioContext.destination);
-      
+
       // Start playing
       audioElement.play().then(() => {
         radioExpanded = true;
-        console.log('Audio started, starting visualization...');
         startVisualization();
         startSpeakerTracking();
-      }).catch(error => {
-        console.log('Audio play failed:', error);
+      }).catch(() => {
+        // Audio play failed
       });
       
       // Listen for audio end
@@ -86,6 +93,12 @@
       // Stop audio and collapse
       radioExpanded = false;
       stopVisualization();
+      if (speakerInterval) clearInterval(speakerInterval);
+      if (fadeOutTimer) clearInterval(fadeOutTimer);
+      if (fadeInTimer) clearInterval(fadeInTimer);
+      if (audioElement) {
+        audioElement.pause();
+      }
       if (audioContext) {
         audioContext.close();
       }
@@ -95,17 +108,13 @@
   function startVisualization() {
     const canvas = document.getElementById('waveform-canvas') as HTMLCanvasElement;
     if (!canvas) {
-      console.log('Canvas not found!');
       return;
     }
-    
+
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      console.log('Canvas context not available!');
       return;
     }
-    
-    console.log('Starting visualization with canvas:', canvas.width, 'x', canvas.height);
     
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
@@ -126,9 +135,13 @@
       const barWidth = 1; // Thinner bars to accommodate more bars
       
       // Draw audio bars around the inside edge of the circle, extending inward
+      ctx!.beginPath();
+      ctx!.strokeStyle = '#5ec3ff88'; // Faded blue to match Halo theme
+      ctx!.lineWidth = barWidth;
+      ctx!.lineCap = 'round';
       for (let i = 0; i < numBars; i++) {
         const angle = (i / numBars) * 2 * Math.PI;
-        
+
         // Use only half the spectrum and mirror it
         const halfBars = numBars / 2;
         let dataIndex;
@@ -140,29 +153,25 @@
           const mirrorIndex = numBars - 1 - i;
           dataIndex = Math.floor((mirrorIndex / halfBars) * (bufferLength / 2));
         }
-        
+
         const amplitude = (dataArray[dataIndex] / 255) * maxBarLength;
-        
+
         // Ensure minimum bar length for visibility
         const minAmplitude = 3;
         const finalAmplitude = Math.max(amplitude, minAmplitude);
-        
+
         // Calculate bar start and end positions
         // Start at the edge of the widget, extend inward toward center
         const startX = centerX + widgetRadius * Math.cos(angle);
         const startY = centerY + widgetRadius * Math.sin(angle);
         const endX = centerX + (widgetRadius - finalAmplitude) * Math.cos(angle);
         const endY = centerY + (widgetRadius - finalAmplitude) * Math.sin(angle);
-        
+
         // Draw the bar
-        ctx!.beginPath();
-        ctx!.strokeStyle = '#5ec3ff88'; // Faded blue to match Halo theme
-        ctx!.lineWidth = barWidth;
-        ctx!.lineCap = 'round';
         ctx!.moveTo(startX, startY);
         ctx!.lineTo(endX, endY);
-        ctx!.stroke();
       }
+      ctx!.stroke();
     }
     
     draw();
@@ -205,8 +214,8 @@
     }
     
     // Update speaker every 100ms
-    const speakerInterval = setInterval(updateSpeaker, 100);
-    
+    speakerInterval = setInterval(updateSpeaker, 100);
+
     // Clean up interval when audio ends
     audioElement.addEventListener('ended', () => {
       clearInterval(speakerInterval);
@@ -224,26 +233,26 @@
     const fadeOutInterval = fadeOutDuration / fadeOutSteps;
     
     let fadeOutStep = 0;
-    const fadeOutTimer = setInterval(() => {
+    fadeOutTimer = setInterval(() => {
       fadeOutStep++;
       fadeOpacity = 1 - (fadeOutStep / fadeOutSteps);
-      
+
       if (fadeOutStep >= fadeOutSteps) {
         clearInterval(fadeOutTimer);
-        
+
         // Switch speaker
         currentSpeaker = newSpeaker;
-        
+
         // Fade in new image
         const fadeInDuration = 200; // 200ms fade in
         const fadeInSteps = 20;
         const fadeInInterval = fadeInDuration / fadeInSteps;
-        
+
         let fadeInStep = 0;
-        const fadeInTimer = setInterval(() => {
+        fadeInTimer = setInterval(() => {
           fadeInStep++;
           fadeOpacity = fadeInStep / fadeInSteps;
-          
+
           if (fadeInStep >= fadeInSteps) {
             clearInterval(fadeInTimer);
             fadeOpacity = 1;
@@ -286,18 +295,6 @@
       }, 100);
     }
     
-    // Also reset scroll position when mobile state changes
-    const resetScroll = () => {
-      if (isMobile && levelSelectRow) {
-        levelSelectRow.scrollLeft = 0;
-      }
-    };
-    
-    // Reset scroll when mobile state changes
-    $: if (isMobile && levelSelectRow) {
-      setTimeout(resetScroll, 50);
-    }
-
     // Keyboard navigation
     function handleKeyDown(e: KeyboardEvent) {
       if (!isMobile) {
@@ -349,6 +346,12 @@
         window.removeEventListener('resize', updateIsMobile);
         window.removeEventListener('storage', handleStorageChange);
       }
+      if (speakerInterval) clearInterval(speakerInterval);
+      if (fadeOutTimer) clearInterval(fadeOutTimer);
+      if (fadeInTimer) clearInterval(fadeInTimer);
+      if (animationId) cancelAnimationFrame(animationId);
+      if (audioElement) audioElement.pause();
+      if (audioContext) audioContext.close();
     };
   });
   
@@ -372,7 +375,7 @@
   <div class="crt-background">
     <div class="tv-frame">
       <div class="crt-overlay"></div>
-      <video autoplay loop muted playsinline class="background-video">
+      <video autoplay loop muted playsinline preload="metadata" class="background-video">
         <source src="/menu_background.webm" type="video/webm" />
         Your browser does not support the video tag.
       </video>
@@ -388,7 +391,7 @@
           {#each visibleProjects as project, i}
             <div class="level-card {selected === i ? 'selected' : ''}">
               <div class="level-img-wrapper">
-                <img src={project.image} alt={project.title} class="level-img" />
+                <img src={project.image} alt={project.title} class="level-img" loading="lazy" decoding="async" />
               </div>
               <div class="level-title">{project.title}</div>
               <div class="level-desc">{project.description}</div>
@@ -403,7 +406,7 @@
         </button>
       </div>
       <div class="back-row">
-        <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => history.back()}>= BACK</div>
+        <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => goto('/')} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto('/'); } }}>= BACK</div>
         <div class="select-label">= SELECT</div>
       </div>
       <div class="tv-stand"></div>
@@ -413,7 +416,7 @@
 {:else}
   <!-- fallback: render the normal layout, or just the CRT layout always if you prefer -->
   <div class="projects-bg">
-    <video autoplay loop muted playsinline class="background-video">
+    <video autoplay loop muted playsinline preload="metadata" class="background-video">
       <source src="/menu_background.webm" type="video/webm" />
       Your browser does not support the video tag.
     </video>
@@ -429,7 +432,7 @@
         {#each visibleProjects as project, i}
           <div class="level-card {selected === i ? 'selected' : ''}">
             <div class="level-img-wrapper">
-              <img src={project.image} alt={project.title} class="level-img" />
+              <img src={project.image} alt={project.title} class="level-img" loading="lazy" decoding="async" />
             </div>
             <div class="level-title">{project.title}</div>
             <div class="level-desc">{project.description}</div>
@@ -444,14 +447,14 @@
       </button>
     </div>
     <div class="back-row">
-      <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => history.back()}>= BACK</div>
+      <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => goto('/')} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto('/'); } }}>= BACK</div>
       <div class="select-label">= SELECT</div>
     </div>
   </div>
 {/if}
 
 <!-- Radio Widget -->
-<div class="radio-widget {radioExpanded ? 'expanded' : ''}" role="button" tabindex="0" aria-label="Radio to Master Chief and Cortana" on:click={toggleRadio}>
+<div class="radio-widget {radioExpanded ? 'expanded' : ''}" role="button" tabindex="0" aria-label="Radio to Master Chief and Cortana" on:click={toggleRadio} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRadio(); } }}>
   <svg class="radio-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <!-- Walkie-talkie body -->
     <rect x="6" y="4" width="12" height="16" rx="2" fill="#5ec3ff"/>
@@ -473,28 +476,24 @@
   
   <!-- Speaker Profile -->
   <div class="speaker-profile">
-    <img src={currentSpeaker === 'chief' ? '/master_chief.webp' : '/cortana.webp'} 
-         alt={currentSpeaker === 'chief' ? 'Master Chief' : 'Cortana'} 
+    <img src={currentSpeaker === 'chief' ? '/master_chief.webp' : '/cortana.webp'}
+         alt={currentSpeaker === 'chief' ? 'Master Chief' : 'Cortana'}
          class="speaker-image"
-         style="opacity: {fadeOpacity};" />
+         style="opacity: {fadeOpacity};"
+         loading="lazy"
+         decoding="async"
+         width="120"
+         height="120" />
     <canvas id="waveform-canvas" class="waveform-canvas" width="120" height="120"></canvas>
   </div>
 </div>
 
 <style>
-body {
-  min-height: 100vh;
-  background: radial-gradient(ellipse at center, #222 60%, #111 100%) fixed, url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="%23111111"/><circle cx="50" cy="50" r="40" fill="%23222222" fill-opacity="0.08"/></svg>');
-  background-blend-mode: multiply;
-  background-size: cover;
-  background-repeat: repeat;
-  overflow-x: hidden;
-}
 .crt-background {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   background: url('/CRT_bg.jpeg') 44% 54% no-repeat;
   background-size: 124%;
@@ -626,10 +625,6 @@ body {
   }
 }
 @media (max-width: 700px) {
-  html, body {
-    max-width: 100vw;
-    overflow-x: hidden;
-  }
   .crt-background {
     background: url('/CRT_bg.jpeg') 47.5% 55.75% no-repeat;
     background-size: 255%;
@@ -1276,7 +1271,7 @@ body {
   justify-content: center;
   cursor: pointer;
   z-index: 1000;
-  transition: all 0.5s ease;
+  transition: width 0.5s ease, height 0.5s ease, border-color 0.3s ease;
   backdrop-filter: blur(10px);
   overflow: visible;
   transform-origin: left center;
@@ -1322,7 +1317,7 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 70px;
+  width: 60px;
   height: 60px;
   border: 2px solid #5ec3ff;
   border-radius: 50%;

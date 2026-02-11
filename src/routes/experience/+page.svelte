@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+
   let crtMode = false;
 
   // Radio widget variables
@@ -13,6 +14,9 @@
   let audioElement: HTMLAudioElement;
   let fadeOpacity = 1; // For smooth transitions
   let isTransitioning = false;
+  let speakerInterval: ReturnType<typeof setInterval>;
+  let fadeOutTimer: ReturnType<typeof setInterval>;
+  let fadeInTimer: ReturnType<typeof setInterval>;
 
   // Experience sections data
   const experienceSections = [
@@ -141,29 +145,33 @@ Skills: Customer Service, Time Management, Problem Solving`
       audioElement = new Audio('/audio/experience_cortana_and_chief.mp3');
       
       // Initialize audio context for visualization
-      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Resume audio context if suspended
-      if (audioContext.state === 'suspended') {
-        audioContext.resume();
+      try {
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        // Resume audio context if suspended
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.8;
+
+        audioSource = audioContext.createMediaElementSource(audioElement);
+        audioSource.connect(analyser);
+        analyser.connect(audioContext.destination);
+      } catch (_e) {
+        // AudioContext creation failed; bail out
+        return;
       }
-      
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.8;
-      
-      audioSource = audioContext.createMediaElementSource(audioElement);
-      audioSource.connect(analyser);
-      analyser.connect(audioContext.destination);
-      
+
       // Start playing
       audioElement.play().then(() => {
         radioExpanded = true;
-        console.log('Audio started, starting visualization...');
         startVisualization();
         startSpeakerTracking();
-      }).catch(error => {
-        console.log('Audio play failed:', error);
+      }).catch(_error => {
+        // Audio play failed
       });
       
       // Listen for audio end
@@ -177,6 +185,18 @@ Skills: Customer Service, Time Management, Problem Solving`
       // Stop audio and collapse
       radioExpanded = false;
       stopVisualization();
+      if (audioElement) {
+        audioElement.pause();
+      }
+      if (speakerInterval) {
+        clearInterval(speakerInterval);
+      }
+      if (fadeOutTimer) {
+        clearInterval(fadeOutTimer);
+      }
+      if (fadeInTimer) {
+        clearInterval(fadeInTimer);
+      }
       if (audioContext) {
         audioContext.close();
       }
@@ -186,17 +206,13 @@ Skills: Customer Service, Time Management, Problem Solving`
   function startVisualization() {
     const canvas = document.getElementById('waveform-canvas') as HTMLCanvasElement;
     if (!canvas) {
-      console.log('Canvas not found!');
       return;
     }
-    
+
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      console.log('Canvas context not available!');
       return;
     }
-    
-    console.log('Starting visualization with canvas:', canvas.width, 'x', canvas.height);
     
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
@@ -217,9 +233,13 @@ Skills: Customer Service, Time Management, Problem Solving`
       const barWidth = 1; // Thinner bars to accommodate more bars
       
       // Draw audio bars around the inside edge of the circle, extending inward
+      ctx!.beginPath();
+      ctx!.strokeStyle = '#5ec3ff88'; // Faded blue to match Halo theme
+      ctx!.lineWidth = barWidth;
+      ctx!.lineCap = 'round';
       for (let i = 0; i < numBars; i++) {
         const angle = (i / numBars) * 2 * Math.PI;
-        
+
         // Use only half the spectrum and mirror it
         const halfBars = numBars / 2;
         let dataIndex;
@@ -231,29 +251,25 @@ Skills: Customer Service, Time Management, Problem Solving`
           const mirrorIndex = numBars - 1 - i;
           dataIndex = Math.floor((mirrorIndex / halfBars) * (bufferLength / 2));
         }
-        
+
         const amplitude = (dataArray[dataIndex] / 255) * maxBarLength;
-        
+
         // Ensure minimum bar length for visibility
         const minAmplitude = 3;
         const finalAmplitude = Math.max(amplitude, minAmplitude);
-        
+
         // Calculate bar start and end positions
         // Start at the edge of the widget, extend inward toward center
         const startX = centerX + widgetRadius * Math.cos(angle);
         const startY = centerY + widgetRadius * Math.sin(angle);
         const endX = centerX + (widgetRadius - finalAmplitude) * Math.cos(angle);
         const endY = centerY + (widgetRadius - finalAmplitude) * Math.sin(angle);
-        
+
         // Draw the bar
-        ctx!.beginPath();
-        ctx!.strokeStyle = '#5ec3ff88'; // Faded blue to match Halo theme
-        ctx!.lineWidth = barWidth;
-        ctx!.lineCap = 'round';
         ctx!.moveTo(startX, startY);
         ctx!.lineTo(endX, endY);
-        ctx!.stroke();
       }
+      ctx!.stroke();
     }
     
     draw();
@@ -301,8 +317,8 @@ Skills: Customer Service, Time Management, Problem Solving`
     }
     
     // Update speaker every 100ms
-    const speakerInterval = setInterval(updateSpeaker, 100);
-    
+    speakerInterval = setInterval(updateSpeaker, 100);
+
     // Clean up interval when audio ends
     audioElement.addEventListener('ended', () => {
       clearInterval(speakerInterval);
@@ -320,26 +336,26 @@ Skills: Customer Service, Time Management, Problem Solving`
     const fadeOutInterval = fadeOutDuration / fadeOutSteps;
     
     let fadeOutStep = 0;
-    const fadeOutTimer = setInterval(() => {
+    fadeOutTimer = setInterval(() => {
       fadeOutStep++;
       fadeOpacity = 1 - (fadeOutStep / fadeOutSteps);
-      
+
       if (fadeOutStep >= fadeOutSteps) {
         clearInterval(fadeOutTimer);
-        
+
         // Switch speaker
         currentSpeaker = newSpeaker;
-        
+
         // Fade in new image
         const fadeInDuration = 200; // 200ms fade in
         const fadeInSteps = 20;
         const fadeInInterval = fadeInDuration / fadeInSteps;
-        
+
         let fadeInStep = 0;
-        const fadeInTimer = setInterval(() => {
+        fadeInTimer = setInterval(() => {
           fadeInStep++;
           fadeOpacity = fadeInStep / fadeInSteps;
-          
+
           if (fadeInStep >= fadeInSteps) {
             clearInterval(fadeInTimer);
             fadeOpacity = 1;
@@ -366,8 +382,17 @@ Skills: Customer Service, Time Management, Problem Solving`
       
       return () => {
         window.removeEventListener('storage', handleStorageChange);
-        
+
         // Clean up radio widget
+        if (speakerInterval) {
+          clearInterval(speakerInterval);
+        }
+        if (fadeOutTimer) {
+          clearInterval(fadeOutTimer);
+        }
+        if (fadeInTimer) {
+          clearInterval(fadeInTimer);
+        }
         if (audioContext) {
           audioContext.close();
         }
@@ -387,7 +412,7 @@ Skills: Customer Service, Time Management, Problem Solving`
   <div class="crt-background">
     <div class="tv-frame">
       <div class="crt-overlay"></div>
-      <video autoplay loop muted playsinline class="background-video">
+      <video autoplay loop muted playsinline preload="metadata" class="background-video">
         <source src="/menu_background.webm" type="video/webm" />
         Your browser does not support the video tag.
       </video>
@@ -436,7 +461,7 @@ Skills: Customer Service, Time Management, Problem Solving`
         </div>
       </div>
       <div class="back-row">
-        <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => history.back()}>= BACK</div>
+        <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => goto('/')} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto('/'); } }}>= BACK</div>
       </div>
       <div class="tv-stand"></div>
       <div class="tv-base"></div>
@@ -444,7 +469,7 @@ Skills: Customer Service, Time Management, Problem Solving`
   </div>
 {:else}
   <div class="experience-bg">
-    <video autoplay loop muted playsinline class="background-video">
+    <video autoplay loop muted playsinline preload="metadata" class="background-video">
       <source src="/menu_background.webm" type="video/webm" />
       Your browser does not support the video tag.
     </video>
@@ -493,13 +518,13 @@ Skills: Customer Service, Time Management, Problem Solving`
       </div>
     </div>
     <div class="back-row">
-      <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => history.back()}>= BACK</div>
+      <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => goto('/')} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto('/'); } }}>= BACK</div>
     </div>
   </div>
 {/if}
 
 <!-- Radio Widget -->
-<div class="radio-widget {radioExpanded ? 'expanded' : ''}" role="button" tabindex="0" aria-label="Radio to Master Chief and Cortana" on:click={toggleRadio}>
+<div class="radio-widget {radioExpanded ? 'expanded' : ''}" role="button" tabindex="0" aria-label="Radio to Master Chief and Cortana" on:click={toggleRadio} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRadio(); } }}>
   <svg class="radio-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <!-- Walkie-talkie body -->
     <rect x="6" y="4" width="12" height="16" rx="2" fill="#5ec3ff"/>
@@ -521,31 +546,24 @@ Skills: Customer Service, Time Management, Problem Solving`
   
   <!-- Speaker Profile -->
   <div class="speaker-profile">
-    <img src={currentSpeaker === 'chief' ? '/master_chief.webp' : '/cortana.webp'} 
-         alt={currentSpeaker === 'chief' ? 'Master Chief' : 'Cortana'} 
+    <img src={currentSpeaker === 'chief' ? '/master_chief.webp' : '/cortana.webp'}
+         alt={currentSpeaker === 'chief' ? 'Master Chief' : 'Cortana'}
          class="speaker-image"
-         style="opacity: {fadeOpacity};" />
+         style="opacity: {fadeOpacity};"
+         loading="lazy"
+         decoding="async"
+         width="120"
+         height="120" />
     <canvas id="waveform-canvas" class="waveform-canvas" width="120" height="120"></canvas>
   </div>
 </div>
 
 <style>
-html, body {
-  max-width: 100vw;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  min-height: 100vh;
-  background: radial-gradient(ellipse at center, #222 60%, #111 100%) fixed, url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="%23111111"/><circle cx="50" cy="50" r="40" fill="%23222222" fill-opacity="0.08"/></svg>');
-  background-blend-mode: multiply;
-  background-size: cover;
-  background-repeat: repeat;
-}
-
 .crt-background {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   background: url('/CRT_bg.jpeg') 44% 54% no-repeat;
   background-size: 124%;
@@ -667,7 +685,7 @@ html, body {
   align-items: center;
   justify-content: center;
   position: relative;
-  max-width: 100vw;
+  max-width: 100%;
   overflow: hidden;
 }
 
@@ -769,7 +787,7 @@ html, body {
 @media (max-width: 900px) {
   .tv-frame {
     width: 98vw;
-    max-width: 100vw;
+    max-width: 100%;
     border-width: 12px;
     border-radius: 2rem;
   }
@@ -807,13 +825,6 @@ html, body {
 }
 
 @media (max-width: 700px) {
-  html, body {
-    max-width: 100vw;
-    overflow-x: hidden;
-    overflow-y: hidden;
-    height: 100vh;
-  }
-  
   .crt-background {
     background: url('/CRT_bg.jpeg') 47.5% 55.75% no-repeat;
     background-size: 255%;
@@ -823,7 +834,7 @@ html, body {
   
   .tv-frame {
     width: 98vw;
-    max-width: 100vw;
+    max-width: 100%;
     min-width: 0;
     aspect-ratio: 4 / 3;
     border-width: 6px;
@@ -1056,7 +1067,7 @@ html, body {
 @media (max-width: 1000px) {
   .tv-frame {
     width: 98vw;
-    max-width: 100vw;
+    max-width: 100%;
     border-width: 6px;
     border-radius: 1.2rem;
   }
@@ -1076,8 +1087,8 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  width: 100vw;
-  max-width: 100vw;
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   background: rgba(10, 20, 40, 0.85);
   box-shadow: 0 0 32px #1976d288, 0 0 2px #fff8;
@@ -1316,7 +1327,7 @@ body > :last-child {
   justify-content: center;
   cursor: pointer;
   z-index: 1000;
-  transition: all 0.5s ease;
+  transition: width 0.5s ease, height 0.5s ease, border-color 0.3s ease;
   backdrop-filter: blur(10px);
   overflow: visible;
   transform-origin: left center;
@@ -1362,7 +1373,7 @@ body > :last-child {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 70px;
+  width: 60px;
   height: 60px;
   border: 2px solid #5ec3ff;
   border-radius: 50%;

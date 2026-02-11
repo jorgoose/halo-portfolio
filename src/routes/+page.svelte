@@ -13,6 +13,11 @@ let currentSpeaker = 'chief'; // 'chief' or 'cortana'
 let audioElement: HTMLAudioElement;
 let fadeOpacity = 1; // For smooth transitions
 let isTransitioning = false;
+let speakerInterval: ReturnType<typeof setInterval>;
+let fadeOutTimer: ReturnType<typeof setInterval>;
+let fadeInTimer: ReturnType<typeof setInterval>;
+let selectedItem = 0;
+let menuItemRefs: HTMLElement[] = [];
 
 const menuItems = [
   { label: 'ABOUT', link: '/about' },
@@ -86,7 +91,6 @@ function handleVideoLoad(event: Event) {
     
     // Add error handling for video load failures
     video.addEventListener('error', () => {
-      console.log('Video load error');
       videoAutoplayFailed = true;
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('autoplayStatus', 'failed');
@@ -102,8 +106,8 @@ function playVideo() {
     video.play().then(() => {
       videoAutoplayFailed = false;
       hasCheckedAutoplay = true; // Mark that we've successfully handled autoplay
-    }).catch(error => {
-      console.log('Video play failed:', error);
+    }).catch(() => {
+      // Video play failed
     });
   });
 }
@@ -112,33 +116,37 @@ function toggleRadio() {
   if (!radioExpanded) {
     // Start playing audio and expand
     audioElement = new Audio('/audio/cortana_and_chief_audio_tmp_1.mp3');
-    
+
     // Initialize audio context for visualization
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
-    // Resume audio context if suspended
-    if (audioContext.state === 'suspended') {
-      audioContext.resume();
+    try {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+      // Resume audio context if suspended
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+
+      audioSource = audioContext.createMediaElementSource(audioElement);
+      audioSource.connect(analyser);
+      analyser.connect(audioContext.destination);
+    } catch (err) {
+      console.error('Failed to create AudioContext:', err);
+      return;
     }
-    
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.8;
-    
-    audioSource = audioContext.createMediaElementSource(audioElement);
-    audioSource.connect(analyser);
-    analyser.connect(audioContext.destination);
-    
+
     // Start playing
     audioElement.play().then(() => {
       radioExpanded = true;
-      console.log('Audio started, starting visualization...');
       startVisualization();
       startSpeakerTracking();
-    }).catch(error => {
-      console.log('Audio play failed:', error);
+    }).catch(() => {
+      // Audio play failed
     });
-    
+
     // Listen for audio end
     audioElement.addEventListener('ended', () => {
       radioExpanded = false;
@@ -149,6 +157,9 @@ function toggleRadio() {
     // Stop audio and collapse
     radioExpanded = false;
     stopVisualization();
+    if (speakerInterval) { clearInterval(speakerInterval); }
+    if (fadeOutTimer) { clearInterval(fadeOutTimer); }
+    if (fadeInTimer) { clearInterval(fadeInTimer); }
     if (audioElement) {
       audioElement.pause();
       audioElement.currentTime = 0;
@@ -163,40 +174,42 @@ function toggleRadio() {
 function startVisualization() {
   const canvas = document.getElementById('waveform-canvas') as HTMLCanvasElement;
   if (!canvas) {
-    console.log('Canvas not found!');
     return;
   }
-  
+
   const ctx = canvas.getContext('2d');
   if (!ctx) {
-    console.log('Canvas context not available!');
     return;
   }
-  
-  console.log('Starting visualization with canvas:', canvas.width, 'x', canvas.height);
-  
+
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
-  
+
   function draw() {
     animationId = requestAnimationFrame(draw);
-    
+
     analyser.getByteFrequencyData(dataArray);
-    
+
     // Clear canvas
     ctx!.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const widgetRadius = canvas.width / 2 - 2; // Radius of the radio widget (accounting for border)
     const maxBarLength = 20; // Maximum length of audio bars extending inward
     const numBars = 128; // Doubled number of audio bars for even smoother appearance
     const barWidth = 1; // Thinner bars to accommodate more bars
-    
+
+    // Set styles once before the loop
+    ctx!.beginPath();
+    ctx!.strokeStyle = '#5ec3ff88'; // Faded blue to match Halo theme
+    ctx!.lineWidth = barWidth;
+    ctx!.lineCap = 'round';
+
     // Draw audio bars around the inside edge of the circle, extending inward
     for (let i = 0; i < numBars; i++) {
       const angle = (i / numBars) * 2 * Math.PI;
-      
+
       // Use only half the spectrum and mirror it
       const halfBars = numBars / 2;
       let dataIndex;
@@ -208,33 +221,28 @@ function startVisualization() {
         const mirrorIndex = numBars - 1 - i;
         dataIndex = Math.floor((mirrorIndex / halfBars) * (bufferLength / 2));
       }
-      
+
       const amplitude = (dataArray[dataIndex] / 255) * maxBarLength;
-      
+
       // Ensure minimum bar length for visibility
       const minAmplitude = 3;
       const finalAmplitude = Math.max(amplitude, minAmplitude);
-      
+
       // Calculate bar start and end positions
       // Start at the edge of the widget, extend inward toward center
       const startX = centerX + widgetRadius * Math.cos(angle);
       const startY = centerY + widgetRadius * Math.sin(angle);
       const endX = centerX + (widgetRadius - finalAmplitude) * Math.cos(angle);
       const endY = centerY + (widgetRadius - finalAmplitude) * Math.sin(angle);
-      
-      // Draw the bar
-      ctx!.beginPath();
-      ctx!.strokeStyle = '#5ec3ff88'; // Faded blue to match Halo theme
-      ctx!.lineWidth = barWidth;
-      ctx!.lineCap = 'round';
+
       ctx!.moveTo(startX, startY);
       ctx!.lineTo(endX, endY);
-      ctx!.stroke();
     }
-    
 
+    // Single stroke call for all bars
+    ctx!.stroke();
   }
-  
+
   draw();
 }
 
@@ -269,7 +277,7 @@ function startSpeakerTracking() {
   }
   
   // Update speaker every 100ms
-  const speakerInterval = setInterval(updateSpeaker, 100);
+  speakerInterval = setInterval(updateSpeaker, 100);
   
   // Clean up interval when audio ends
   audioElement.addEventListener('ended', () => {
@@ -288,26 +296,26 @@ function transitionToSpeaker(newSpeaker: string) {
   const fadeOutInterval = fadeOutDuration / fadeOutSteps;
   
   let fadeOutStep = 0;
-  const fadeOutTimer = setInterval(() => {
+  fadeOutTimer = setInterval(() => {
     fadeOutStep++;
     fadeOpacity = 1 - (fadeOutStep / fadeOutSteps);
-    
+
     if (fadeOutStep >= fadeOutSteps) {
       clearInterval(fadeOutTimer);
-      
+
       // Switch speaker
       currentSpeaker = newSpeaker;
-      
+
       // Fade in new image
       const fadeInDuration = 200; // 200ms fade in
       const fadeInSteps = 20;
       const fadeInInterval = fadeInDuration / fadeInSteps;
-      
+
       let fadeInStep = 0;
-      const fadeInTimer = setInterval(() => {
+      fadeInTimer = setInterval(() => {
         fadeInStep++;
         fadeOpacity = fadeInStep / fadeInSteps;
-        
+
         if (fadeInStep >= fadeInSteps) {
           clearInterval(fadeInTimer);
           fadeOpacity = 1;
@@ -318,22 +326,46 @@ function transitionToSpeaker(newSpeaker: string) {
   }, fadeOutInterval);
 }
 
+function handleMenuKeyDown(e: KeyboardEvent) {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    selectedItem = (selectedItem + 1) % menuItems.length;
+    menuItemRefs[selectedItem]?.focus();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    selectedItem = (selectedItem - 1 + menuItems.length) % menuItems.length;
+    menuItemRefs[selectedItem]?.focus();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const link = menuItems[selectedItem]?.link;
+    if (link) {
+      window.location.href = link;
+    }
+  }
+}
+
 onMount(() => {
   // Read CRT mode from localStorage
   if (typeof window !== 'undefined') {
     crtMode = localStorage.getItem('crtMode') === 'true';
-    
+
     // Listen for storage changes (in case user has multiple tabs)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'crtMode') {
         crtMode = e.newValue === 'true';
       }
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      if (audioElement) { audioElement.pause(); audioElement.src = ''; }
+      if (audioContext) { audioContext.close(); }
+      if (animationId) { cancelAnimationFrame(animationId); }
+      if (speakerInterval) { clearInterval(speakerInterval); }
+      if (fadeOutTimer) { clearInterval(fadeOutTimer); }
+      if (fadeInTimer) { clearInterval(fadeInTimer); }
     };
   }
 });
@@ -344,7 +376,7 @@ onMount(() => {
 </svelte:head>
 
 <div class="crt-toggle-bar">
-  <button class="crt-toggle" on:click={toggleCrtMode}>
+  <button class="crt-toggle" on:click={toggleCrtMode} aria-pressed={crtMode}>
     CRT Mode: {crtMode ? 'On' : 'Off'}
   </button>
 </div>
@@ -372,7 +404,7 @@ onMount(() => {
 {/if}
 
 <!-- Radio Widget -->
-<div class="radio-widget {radioExpanded ? 'expanded' : ''}" role="button" tabindex="0" aria-label="Radio to Master Chief" on:click={toggleRadio}>
+<div class="radio-widget {radioExpanded ? 'expanded' : ''}" role="button" tabindex="0" aria-label="Radio to Master Chief" on:click={toggleRadio} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRadio(); } }}>
   <svg class="radio-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <!-- Walkie-talkie body -->
     <rect x="6" y="4" width="12" height="16" rx="2" fill="#5ec3ff"/>
@@ -394,10 +426,14 @@ onMount(() => {
   
   <!-- Speaker Profile -->
   <div class="speaker-profile">
-    <img src={currentSpeaker === 'chief' ? '/master_chief.webp' : '/cortana.webp'} 
-         alt={currentSpeaker === 'chief' ? 'Master Chief' : 'Cortana'} 
+    <img src={currentSpeaker === 'chief' ? '/master_chief.webp' : '/cortana.webp'}
+         alt={currentSpeaker === 'chief' ? 'Master Chief' : 'Cortana'}
          class="speaker-image"
-         style="opacity: {fadeOpacity};" />
+         style="opacity: {fadeOpacity};"
+         loading="lazy"
+         decoding="async"
+         width="120"
+         height="120" />
     <canvas id="waveform-canvas" class="waveform-canvas" width="120" height="120"></canvas>
   </div>
 </div>
@@ -440,8 +476,8 @@ onMount(() => {
         <h1 class="halo-title">LOGAN</h1>
       </div>
       <ul class="menu">
-        {#each menuItems as item}
-          <li><a href={item.link}>{item.label}</a></li>
+        {#each menuItems as item, i}
+          <li bind:this={menuItemRefs[i]} tabindex="0" on:keydown={handleMenuKeyDown} class:menu-selected={selectedItem === i}><a href={item.link}>{item.label}</a></li>
         {/each}
       </ul>
       <div class="tv-stand"></div>
@@ -484,25 +520,16 @@ onMount(() => {
       <h1 class="halo-title">LOGAN</h1>
     </div>
     <ul class="menu">
-      {#each menuItems as item}
-        <li><a href={item.link}>{item.label}</a></li>
+      {#each menuItems as item, i}
+        <li bind:this={menuItemRefs[i]} tabindex="0" on:keydown={handleMenuKeyDown} class:menu-selected={selectedItem === i}><a href={item.link}>{item.label}</a></li>
       {/each}
     </ul>
   </div>
 {/if}
 
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
 .crt-toggle-bar {
-  width: 100vw;
+  width: 100%;
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -628,7 +655,7 @@ html, body {
   justify-content: center;
   cursor: pointer;
   z-index: 1000;
-  transition: all 0.5s ease;
+  transition: width 0.5s ease, height 0.5s ease, border-color 0.3s ease;
   backdrop-filter: blur(10px);
   overflow: visible;
 }
@@ -673,7 +700,7 @@ html, body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 70px;
+  width: 60px;
   height: 60px;
   border: 2px solid #5ec3ff;
   border-radius: 50%;
@@ -785,7 +812,7 @@ html, body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   background: url('/CRT_bg.jpeg') 44% 54% no-repeat;
   background-size: 124%;
@@ -950,11 +977,6 @@ html, body {
   }
 }
 @media (max-width: 700px) {
-  html, body {
-    max-width: 100vw;
-    overflow-x: hidden;
-  }
-  
   .crt-background {
     background: url('/CRT_bg.jpeg') 47.5% 55.75% no-repeat;
     background-size: 255%;
@@ -1104,7 +1126,7 @@ html, body {
 }
 .halo-bg {
   height: 100vh;
-  width: 100vw;
+  width: 100%;
   background: radial-gradient(ellipse at center, #222 0%, #111 100%);
   display: flex;
   flex-direction: column;
@@ -1119,7 +1141,7 @@ html, body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   object-fit: cover;
   z-index: 0;

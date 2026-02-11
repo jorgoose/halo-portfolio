@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   
   let crtMode = false;
 
@@ -88,7 +89,7 @@
   <div class="crt-background">
     <div class="tv-frame">
       <div class="crt-overlay"></div>
-      <video autoplay loop muted playsinline class="background-video">
+      <video autoplay loop muted playsinline preload="metadata" class="background-video">
         <source src="/menu_background.webm" type="video/webm" />
         Your browser does not support the video tag.
       </video>
@@ -176,7 +177,7 @@
         </div>
       </div>
       <div class="back-row">
-        <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => history.back()}>= BACK</div>
+        <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => goto('/')} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto('/'); } }}>= BACK</div>
       </div>
       <div class="tv-stand"></div>
       <div class="tv-base"></div>
@@ -184,7 +185,7 @@
   </div>
 {:else}
   <div class="contact-bg">
-    <video autoplay loop muted playsinline class="background-video">
+    <video autoplay loop muted playsinline preload="metadata" class="background-video">
       <source src="/menu_background.webm" type="video/webm" />
       Your browser does not support the video tag.
     </video>
@@ -272,28 +273,17 @@
       </div>
     </div>
     <div class="back-row">
-      <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => history.back()}>= BACK</div>
+      <div class="back-label interactive" tabindex="0" role="button" aria-label="Back" on:click={() => goto('/')} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto('/'); } }}>= BACK</div>
     </div>
   </div>
 {/if}
 
 <style>
-html, body {
-  max-width: 100vw;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  min-height: 100vh;
-  background: radial-gradient(ellipse at center, #222 60%, #111 100%) fixed, url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="%23111111"/><circle cx="50" cy="50" r="40" fill="%23222222" fill-opacity="0.08"/></svg>');
-  background-blend-mode: multiply;
-  background-size: cover;
-  background-repeat: repeat;
-}
-
 .crt-background {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   background: url('/CRT_bg.jpeg') 44% 54% no-repeat;
   background-size: 124%;
@@ -411,7 +401,7 @@ html, body {
   align-items: center;
   justify-content: center;
   position: relative;
-  max-width: 100vw;
+  max-width: 100%;
   overflow: hidden;
 }
 
@@ -565,7 +555,7 @@ html, body {
 @media (max-width: 900px) {
   .tv-frame {
     width: 98vw;
-    max-width: 100vw;
+    max-width: 100%;
     border-width: 12px;
     border-radius: 2rem;
   }
@@ -603,11 +593,6 @@ html, body {
 }
 
 @media (max-width: 700px) {
-  html, body {
-    max-width: 100vw;
-    overflow-x: hidden;
-  }
-  
   .crt-background {
     background: url('/CRT_bg.jpeg') 47.5% 55.75% no-repeat;
     background-size: 255%;
@@ -615,7 +600,7 @@ html, body {
   
   .tv-frame {
     width: 98vw;
-    max-width: 100vw;
+    max-width: 100%;
     min-width: 0;
     height: auto;
     max-height: 85vh;
@@ -919,7 +904,7 @@ html, body {
 @media (max-width: 1000px) {
   .tv-frame {
     width: 98vw;
-    max-width: 100vw;
+    max-width: 100%;
     border-width: 6px;
     border-radius: 1.2rem;
   }
@@ -933,8 +918,8 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  width: 100vw;
-  max-width: 100vw;
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   background: rgba(10, 20, 40, 0.85);
   box-shadow: 0 0 32px #1976d288, 0 0 2px #fff8;

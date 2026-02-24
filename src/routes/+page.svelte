@@ -24,14 +24,31 @@ function toggleCrtMode() {
 
 function handleVideoLoad(event: Event) {
   const video = event.target as HTMLVideoElement;
-  if (hasCheckedAutoplay) {
-    // Use cached session result
-    const status = sessionStorage.getItem('autoplayStatus');
-    if (status === 'failed') videoAutoplayFailed = true;
+
+  // Check sessionStorage cache first (survives navigation within session)
+  const cachedStatus = sessionStorage.getItem('autoplayStatus');
+  if (cachedStatus === 'working' || cachedStatus === 'dismissed') {
+    hasCheckedAutoplay = true;
     return;
   }
+  if (cachedStatus === 'failed') {
+    videoAutoplayFailed = true;
+    hasCheckedAutoplay = true;
+    return;
+  }
+
+  if (hasCheckedAutoplay) return;
   hasCheckedAutoplay = true;
 
+  // If the browser's autoplay attribute already started playback, we're done
+  if (!video.paused) {
+    videoAutoplayFailed = false;
+    sessionStorage.setItem('autoplayStatus', 'working');
+    return;
+  }
+
+  // Video is paused after load — autoplay may have been blocked.
+  // Try playing explicitly to confirm.
   const playPromise = video.play();
   if (playPromise !== undefined) {
     playPromise.then(() => {
@@ -99,7 +116,7 @@ onMount(() => {
         <button class="notification-play" on:click={playVideo}>
           PLAY VIDEO
         </button>
-        <button class="notification-close" on:click={() => {videoAutoplayFailed = false; hasCheckedAutoplay = true;}}>
+        <button class="notification-close" on:click={() => {videoAutoplayFailed = false; hasCheckedAutoplay = true; sessionStorage.setItem('autoplayStatus', 'dismissed');}}>
           Got it
         </button>
       </div>

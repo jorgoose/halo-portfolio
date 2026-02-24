@@ -138,7 +138,7 @@ onMount(() => {
     <div class="tv-frame">
       <div class="crt-overlay"></div>
       <video autoplay loop muted playsinline preload="metadata" class="background-video" on:loadeddata={handleVideoLoad} on:error={() => {if (!hasCheckedAutoplay) {hasCheckedAutoplay = true; videoAutoplayFailed = true;}}}>
-        <source src="/menu_background.webm" type="video/webm" />
+        <source src="/menu_background_vp9.webm" type="video/webm" />
         Your browser does not support the video tag.
       </video>
       <div class="title-sigil-container">
@@ -182,7 +182,7 @@ onMount(() => {
 {:else}
   <div class="halo-bg">
     <video autoplay loop muted playsinline preload="metadata" class="background-video" on:loadeddata={handleVideoLoad} on:error={() => {if (!hasCheckedAutoplay) {hasCheckedAutoplay = true; videoAutoplayFailed = true;}}}>
-      <source src="/menu_background.webm" type="video/webm" />
+      <source src="/menu_background_vp9.webm" type="video/webm" />
       Your browser does not support the video tag.
     </video>
     <div class="title-sigil-container">

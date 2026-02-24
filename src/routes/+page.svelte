@@ -94,6 +94,7 @@ onMount(() => {
 
 <svelte:head>
   <title>HaloPortfolio</title>
+  <meta name="description" content="Logan's software engineering portfolio — projects, skills, and experience." />
 </svelte:head>
 
 <div class="crt-toggle-bar">

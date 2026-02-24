@@ -152,7 +152,7 @@ Skills: Customer Service, Time Management, Problem Solving`
     <div class="tv-frame">
       <div class="crt-overlay"></div>
       <video autoplay loop muted playsinline preload="metadata" class="background-video">
-        <source src="/menu_background.webm" type="video/webm" />
+        <source src="/menu_background_vp9.webm" type="video/webm" />
         Your browser does not support the video tag.
       </video>
       <div class="experience-header">Experience</div>
@@ -209,7 +209,7 @@ Skills: Customer Service, Time Management, Problem Solving`
 {:else}
   <div class="experience-bg">
     <video autoplay loop muted playsinline preload="metadata" class="background-video">
-      <source src="/menu_background.webm" type="video/webm" />
+      <source src="/menu_background_vp9.webm" type="video/webm" />
       Your browser does not support the video tag.
     </video>
     <div class="experience-header">Experience</div>

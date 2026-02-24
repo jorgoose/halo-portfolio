@@ -100,7 +100,7 @@
     <div class="tv-frame">
       <div class="crt-overlay"></div>
       <video autoplay loop muted playsinline class="background-video">
-        <source src="/menu_background.webm" type="video/webm" />
+        <source src="/menu_background_vp9.webm" type="video/webm" />
         Your browser does not support the video tag.
       </video>
       <div class="projects-header">Skills</div>
@@ -145,7 +145,7 @@
 {:else}
   <div class="projects-bg">
     <video autoplay loop muted playsinline class="background-video">
-      <source src="/menu_background.webm" type="video/webm" />
+      <source src="/menu_background_vp9.webm" type="video/webm" />
       Your browser does not support the video tag.
     </video>
     <div class="projects-header">Skills</div>
@@ -189,13 +189,14 @@
 <style>
 
 
-body {
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
   min-height: 100vh;
   background: radial-gradient(ellipse at center, #222 60%, #111 100%) fixed, url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="%23111111"/><circle cx="50" cy="50" r="40" fill="%23222222" fill-opacity="0.08"/></svg>');
   background-blend-mode: multiply;
   background-size: cover;
   background-repeat: repeat;
-  overflow-x: hidden;
 }
 .crt-background {
   position: fixed;
@@ -531,6 +532,8 @@ body {
   align-items: center;
   justify-content: center;
   position: relative;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 .background-video {
   position: absolute;
@@ -943,8 +946,8 @@ body {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  width: 100vw;
-  max-width: 100vw;
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   background: rgba(10, 20, 40, 0.85);
   box-shadow: 0 0 32px #1976d288, 0 0 2px #fff8;

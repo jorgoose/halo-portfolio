@@ -160,7 +160,7 @@
     <div class="tv-frame">
       <div class="crt-overlay"></div>
       <video autoplay loop muted playsinline preload="metadata" class="background-video">
-        <source src="/menu_background.webm" type="video/webm" />
+        <source src="/menu_background_vp9.webm" type="video/webm" />
         Your browser does not support the video tag.
       </video>
       <div class="projects-header">Projects</div>
@@ -201,7 +201,7 @@
   <!-- fallback: render the normal layout, or just the CRT layout always if you prefer -->
   <div class="projects-bg">
     <video autoplay loop muted playsinline preload="metadata" class="background-video">
-      <source src="/menu_background.webm" type="video/webm" />
+      <source src="/menu_background_vp9.webm" type="video/webm" />
       Your browser does not support the video tag.
     </video>
     <div class="projects-header">Projects</div>

@@ -16,6 +16,7 @@ const menuItems = [
 
 function toggleCrtMode() {
   crtMode = !crtMode;
+  hasCheckedAutoplay = false;
   if (typeof window !== 'undefined') {
     localStorage.setItem('crtMode', crtMode.toString());
   }
@@ -23,77 +24,34 @@ function toggleCrtMode() {
 
 function handleVideoLoad(event: Event) {
   const video = event.target as HTMLVideoElement;
-  
-  // Check if we've already determined autoplay status this session
-  if (typeof window !== 'undefined') {
-    const sessionAutoplayStatus = sessionStorage.getItem('autoplayStatus');
-    if (sessionAutoplayStatus === 'working') {
-      videoAutoplayFailed = false;
-      hasCheckedAutoplay = true;
-      return;
-    } else if (sessionAutoplayStatus === 'failed') {
-      videoAutoplayFailed = true;
-      hasCheckedAutoplay = true;
-      return;
-    }
+  if (hasCheckedAutoplay) {
+    // Use cached session result
+    const status = sessionStorage.getItem('autoplayStatus');
+    if (status === 'failed') videoAutoplayFailed = true;
+    return;
   }
-  // Check if video is actually playing after a short delay
-  if (video && !hasCheckedAutoplay) {
-    hasCheckedAutoplay = true;
-    
-    // Check if video is actually playing after a short delay
-    const checkPlayback = () => {
-      if (video.paused || video.ended) {
-        videoAutoplayFailed = true;
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('autoplayStatus', 'failed');
-        }
-      } else {
-        videoAutoplayFailed = false;
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('autoplayStatus', 'working');
-        }
-      }
-    };
-    
-    // Check after a short delay to allow autoplay to start
-    setTimeout(checkPlayback, 1000);
-    
-    // Also listen for play/pause events
-    video.addEventListener('play', () => {
+  hasCheckedAutoplay = true;
+
+  const playPromise = video.play();
+  if (playPromise !== undefined) {
+    playPromise.then(() => {
       videoAutoplayFailed = false;
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('autoplayStatus', 'working');
-      }
-    });
-    
-    video.addEventListener('pause', () => {
-      if (video.currentTime === 0) {
-        videoAutoplayFailed = true;
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('autoplayStatus', 'failed');
-        }
-      }
-    });
-    
-    // Add error handling for video load failures
-    video.addEventListener('error', () => {
+      sessionStorage.setItem('autoplayStatus', 'working');
+    }).catch(() => {
       videoAutoplayFailed = true;
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('autoplayStatus', 'failed');
-      }
+      sessionStorage.setItem('autoplayStatus', 'failed');
     });
   }
 }
 
 function playVideo() {
-  // Find all video elements and try to play them
   const videos = document.querySelectorAll('video');
   videos.forEach(video => {
     video.play().then(() => {
       videoAutoplayFailed = false;
-      hasCheckedAutoplay = true; // Mark that we've successfully handled autoplay
-    }).catch(error => {
+      sessionStorage.setItem('autoplayStatus', 'working');
+    }).catch(err => {
+      console.warn('Video play failed:', err);
     });
   });
 }
@@ -130,7 +88,7 @@ onMount(() => {
 {#if videoAutoplayFailed}
   <div class="autoplay-notification">
     <div class="notification-content">
-      <h3>🎬 Video Autoplay Disabled</h3>
+      <h3>VIDEO AUTOPLAY DISABLED</h3>
       <p>To experience the full site, please:</p>
       <ul>
         <li>Turn off Low Power Mode (iOS)</li>
@@ -139,7 +97,7 @@ onMount(() => {
       </ul>
       <div class="notification-buttons">
         <button class="notification-play" on:click={playVideo}>
-          ▶️ Play Video
+          PLAY VIDEO
         </button>
         <button class="notification-close" on:click={() => {videoAutoplayFailed = false; hasCheckedAutoplay = true;}}>
           Got it
@@ -292,13 +250,13 @@ html, body {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.95);
-  border: 2px solid #5ec3ff;
-  border-radius: 1rem;
+  background: rgba(10, 20, 40, 0.85);
+  border: 2.5px solid #1976d2;
+  border-radius: 1.5rem;
   padding: 2rem;
   max-width: 400px;
   width: 90vw;
-  box-shadow: 0 0 32px #5ec3ff88;
+  box-shadow: 0 0 32px #1976d288, 0 0 2px #fff8;
 }
 
 .notification-content h3 {
@@ -328,43 +286,48 @@ html, body {
 
 .notification-buttons {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.75rem;
 }
 
 .notification-play {
-  background: #00ff88;
-  color: #181818;
-  border: none;
-  border-radius: 0.5rem;
+  background: rgba(20, 30, 50, 0.7);
+  color: #5ec3ff;
+  border: 2.5px solid #5ec3ff;
+  border-radius: 1.5rem;
   padding: 0.75rem 1.5rem;
   font-family: 'Xolonium', Arial, sans-serif;
   font-size: 1rem;
   font-weight: bold;
   cursor: pointer;
-  width: 100%;
-  transition: background 0.2s;
+  flex: 1;
+  box-shadow: 0 0 8px #5ec3ff88;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .notification-play:hover {
-  background: #00cc6a;
+  background: #0a223a;
+  color: #fff;
+  border-color: #5ec3ff;
 }
 
 .notification-close {
-  background: #5ec3ff;
-  color: #181818;
-  border: none;
-  border-radius: 0.5rem;
+  background: rgba(20, 30, 50, 0.7);
+  color: #5ec3ff;
+  border: 2.5px solid #1976d2;
+  border-radius: 1.5rem;
   padding: 0.75rem 1.5rem;
   font-family: 'Xolonium', Arial, sans-serif;
   font-size: 1rem;
   cursor: pointer;
-  width: 100%;
-  transition: background 0.2s;
+  flex: 1;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .notification-close:hover {
-  background: #fff;
+  background: #0a223a;
+  color: #fff;
+  border-color: #5ec3ff;
 }
 
 /* CRT TV styles (reuse from projects page) */

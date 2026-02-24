@@ -13,6 +13,8 @@ let currentSpeaker = 'chief'; // 'chief' or 'cortana'
 let audioElement: HTMLAudioElement;
 let fadeOpacity = 1; // For smooth transitions
 let isTransitioning = false;
+let speakerIntervalId: number;
+let fadeTimeoutId: number;
 
 const menuItems = [
   { label: 'ABOUT', link: '/about' },
@@ -86,7 +88,6 @@ function handleVideoLoad(event: Event) {
     
     // Add error handling for video load failures
     video.addEventListener('error', () => {
-      console.log('Video load error');
       videoAutoplayFailed = true;
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('autoplayStatus', 'failed');
@@ -103,7 +104,6 @@ function playVideo() {
       videoAutoplayFailed = false;
       hasCheckedAutoplay = true; // Mark that we've successfully handled autoplay
     }).catch(error => {
-      console.log('Video play failed:', error);
     });
   });
 }
@@ -132,11 +132,9 @@ function toggleRadio() {
     // Start playing
     audioElement.play().then(() => {
       radioExpanded = true;
-      console.log('Audio started, starting visualization...');
       startVisualization();
       startSpeakerTracking();
-    }).catch(error => {
-      console.log('Audio play failed:', error);
+    }).catch(() => {
     });
     
     // Listen for audio end
@@ -162,79 +160,61 @@ function toggleRadio() {
 
 function startVisualization() {
   const canvas = document.getElementById('waveform-canvas') as HTMLCanvasElement;
-  if (!canvas) {
-    console.log('Canvas not found!');
-    return;
-  }
-  
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    console.log('Canvas context not available!');
-    return;
-  }
-  
-  console.log('Starting visualization with canvas:', canvas.width, 'x', canvas.height);
-  
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d')!;
+  if (!ctx) return;
+
   const bufferLength = analyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
-  
+
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const widgetRadius = canvas.width / 2 - 2;
+  const maxBarLength = 20;
+  const numBars = 64;
+  const halfBars = numBars / 2;
+  const minAmplitude = 3;
+
+  // Pre-compute trig values and data indices once
+  const cosAngles = new Float32Array(numBars);
+  const sinAngles = new Float32Array(numBars);
+  const dataIndices = new Uint8Array(numBars);
+
+  for (let i = 0; i < numBars; i++) {
+    const angle = (i / numBars) * 2 * Math.PI;
+    cosAngles[i] = Math.cos(angle);
+    sinAngles[i] = Math.sin(angle);
+    if (i < halfBars) {
+      dataIndices[i] = Math.floor((i / halfBars) * (bufferLength / 2));
+    } else {
+      const mirrorIndex = numBars - 1 - i;
+      dataIndices[i] = Math.floor((mirrorIndex / halfBars) * (bufferLength / 2));
+    }
+  }
+
+  // Set constant draw properties once
+  ctx.strokeStyle = '#5ec3ff88';
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+
   function draw() {
     animationId = requestAnimationFrame(draw);
-    
     analyser.getByteFrequencyData(dataArray);
-    
-    // Clear canvas
-    ctx!.clearRect(0, 0, canvas.width, canvas.height);
-    
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const widgetRadius = canvas.width / 2 - 2; // Radius of the radio widget (accounting for border)
-    const maxBarLength = 20; // Maximum length of audio bars extending inward
-    const numBars = 128; // Doubled number of audio bars for even smoother appearance
-    const barWidth = 1; // Thinner bars to accommodate more bars
-    
-    // Draw audio bars around the inside edge of the circle, extending inward
-    for (let i = 0; i < numBars; i++) {
-      const angle = (i / numBars) * 2 * Math.PI;
-      
-      // Use only half the spectrum and mirror it
-      const halfBars = numBars / 2;
-      let dataIndex;
-      if (i < halfBars) {
-        // First half: use first half of audio spectrum
-        dataIndex = Math.floor((i / halfBars) * (bufferLength / 2));
-      } else {
-        // Second half: mirror the first half
-        const mirrorIndex = numBars - 1 - i;
-        dataIndex = Math.floor((mirrorIndex / halfBars) * (bufferLength / 2));
-      }
-      
-      const amplitude = (dataArray[dataIndex] / 255) * maxBarLength;
-      
-      // Ensure minimum bar length for visibility
-      const minAmplitude = 3;
-      const finalAmplitude = Math.max(amplitude, minAmplitude);
-      
-      // Calculate bar start and end positions
-      // Start at the edge of the widget, extend inward toward center
-      const startX = centerX + widgetRadius * Math.cos(angle);
-      const startY = centerY + widgetRadius * Math.sin(angle);
-      const endX = centerX + (widgetRadius - finalAmplitude) * Math.cos(angle);
-      const endY = centerY + (widgetRadius - finalAmplitude) * Math.sin(angle);
-      
-      // Draw the bar
-      ctx!.beginPath();
-      ctx!.strokeStyle = '#5ec3ff88'; // Faded blue to match Halo theme
-      ctx!.lineWidth = barWidth;
-      ctx!.lineCap = 'round';
-      ctx!.moveTo(startX, startY);
-      ctx!.lineTo(endX, endY);
-      ctx!.stroke();
-    }
-    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Batch all lines into a single path
+    ctx.beginPath();
+    for (let i = 0; i < numBars; i++) {
+      const finalAmplitude = Math.max((dataArray[dataIndices[i]] / 255) * maxBarLength, minAmplitude);
+      const cos = cosAngles[i];
+      const sin = sinAngles[i];
+      ctx.moveTo(centerX + widgetRadius * cos, centerY + widgetRadius * sin);
+      ctx.lineTo(centerX + (widgetRadius - finalAmplitude) * cos, centerY + (widgetRadius - finalAmplitude) * sin);
+    }
+    ctx.stroke();
   }
-  
+
   draw();
 }
 
@@ -246,94 +226,78 @@ function stopVisualization() {
 
 function startSpeakerTracking() {
   if (!audioElement) return;
-  
+
   function updateSpeaker() {
     const currentTime = audioElement.currentTime;
-    
+
     if (currentTime >= 0 && currentTime < 6) {
-      // 0:00 to 0:07 is Master Chief
       if (currentSpeaker !== 'chief' && !isTransitioning) {
         transitionToSpeaker('chief');
       }
     } else if (currentTime >= 6 && currentTime < 31) {
-      // 0:07 to 0:23 is Cortana
       if (currentSpeaker !== 'cortana' && !isTransitioning) {
         transitionToSpeaker('cortana');
       }
     } else if (currentTime >= 31) {
-      // 0:23 to the end is Master Chief
       if (currentSpeaker !== 'chief' && !isTransitioning) {
         transitionToSpeaker('chief');
       }
     }
   }
-  
-  // Update speaker every 100ms
-  const speakerInterval = setInterval(updateSpeaker, 100);
-  
-  // Clean up interval when audio ends
+
+  speakerIntervalId = window.setInterval(updateSpeaker, 100);
+
   audioElement.addEventListener('ended', () => {
-    clearInterval(speakerInterval);
+    clearInterval(speakerIntervalId);
   });
 }
 
 function transitionToSpeaker(newSpeaker: string) {
   if (isTransitioning || currentSpeaker === newSpeaker) return;
-  
+
   isTransitioning = true;
-  
-  // Fade out current image
-  const fadeOutDuration = 200; // 200ms fade out
-  const fadeOutSteps = 20;
-  const fadeOutInterval = fadeOutDuration / fadeOutSteps;
-  
-  let fadeOutStep = 0;
-  const fadeOutTimer = setInterval(() => {
-    fadeOutStep++;
-    fadeOpacity = 1 - (fadeOutStep / fadeOutSteps);
-    
-    if (fadeOutStep >= fadeOutSteps) {
-      clearInterval(fadeOutTimer);
-      
-      // Switch speaker
-      currentSpeaker = newSpeaker;
-      
-      // Fade in new image
-      const fadeInDuration = 200; // 200ms fade in
-      const fadeInSteps = 20;
-      const fadeInInterval = fadeInDuration / fadeInSteps;
-      
-      let fadeInStep = 0;
-      const fadeInTimer = setInterval(() => {
-        fadeInStep++;
-        fadeOpacity = fadeInStep / fadeInSteps;
-        
-        if (fadeInStep >= fadeInSteps) {
-          clearInterval(fadeInTimer);
-          fadeOpacity = 1;
-          isTransitioning = false;
-        }
-      }, fadeInInterval);
-    }
-  }, fadeOutInterval);
+  clearTimeout(fadeTimeoutId);
+
+  // Fade out — CSS transition handles the smooth animation
+  fadeOpacity = 0;
+
+  fadeTimeoutId = window.setTimeout(() => {
+    // Swap speaker image at opacity 0
+    currentSpeaker = newSpeaker;
+
+    // Brief delay for image src to update before fading in
+    fadeTimeoutId = window.setTimeout(() => {
+      fadeOpacity = 1;
+
+      fadeTimeoutId = window.setTimeout(() => {
+        isTransitioning = false;
+      }, 200);
+    }, 20);
+  }, 200);
 }
 
 onMount(() => {
-  // Read CRT mode from localStorage
   if (typeof window !== 'undefined') {
     crtMode = localStorage.getItem('crtMode') === 'true';
-    
-    // Listen for storage changes (in case user has multiple tabs)
+
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'crtMode') {
         crtMode = e.newValue === 'true';
       }
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      clearInterval(speakerIntervalId);
+      clearTimeout(fadeTimeoutId);
+      if (animationId) cancelAnimationFrame(animationId);
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.src = '';
+      }
+      if (audioContext) audioContext.close();
     };
   }
 });
@@ -544,7 +508,6 @@ html, body {
   max-width: 400px;
   width: 90vw;
   box-shadow: 0 0 32px #5ec3ff88;
-  backdrop-filter: blur(10px);
 }
 
 .notification-content h3 {
@@ -628,8 +591,7 @@ html, body {
   justify-content: center;
   cursor: pointer;
   z-index: 1000;
-  transition: all 0.5s ease;
-  backdrop-filter: blur(10px);
+  transition: width 0.5s ease, height 0.5s ease, border-color 0.5s ease;
   overflow: visible;
 }
 
@@ -723,6 +685,7 @@ html, body {
   object-fit: cover;
   position: relative;
   z-index: 1;
+  transition: opacity 200ms ease;
 }
 
 .waveform-canvas {
@@ -855,6 +818,8 @@ html, body {
   left: 0; top: 0; right: 0; bottom: 0;
   z-index: 5;
   mix-blend-mode: lighten;
+  will-change: opacity;
+  contain: layout style paint;
   background:
     repeating-linear-gradient(
       to bottom,

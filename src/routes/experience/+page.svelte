@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   
   let crtMode = false;
 
@@ -13,6 +13,8 @@
   let audioElement: HTMLAudioElement;
   let fadeOpacity = 1; // For smooth transitions
   let isTransitioning = false;
+  let speakerIntervalId: number;
+  let fadeTimeoutId: number;
 
   // Experience sections data
   const experienceSections = [
@@ -159,11 +161,9 @@ Skills: Customer Service, Time Management, Problem Solving`
       // Start playing
       audioElement.play().then(() => {
         radioExpanded = true;
-        console.log('Audio started, starting visualization...');
         startVisualization();
         startSpeakerTracking();
-      }).catch(error => {
-        console.log('Audio play failed:', error);
+      }).catch(() => {
       });
       
       // Listen for audio end
@@ -185,77 +185,58 @@ Skills: Customer Service, Time Management, Problem Solving`
 
   function startVisualization() {
     const canvas = document.getElementById('waveform-canvas') as HTMLCanvasElement;
-    if (!canvas) {
-      console.log('Canvas not found!');
-      return;
-    }
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.log('Canvas context not available!');
-      return;
-    }
-    
-    console.log('Starting visualization with canvas:', canvas.width, 'x', canvas.height);
-    
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d')!;
+    if (!ctx) return;
+
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-    
-    function draw() {
-      animationId = requestAnimationFrame(draw);
-      
-      analyser.getByteFrequencyData(dataArray);
-      
-      // Clear canvas
-      ctx!.clearRect(0, 0, canvas.width, canvas.height);
-      
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const widgetRadius = canvas.width / 2 - 2; // Radius of the radio widget (accounting for border)
-      const maxBarLength = 20; // Maximum length of audio bars extending inward
-      const numBars = 128; // Doubled number of audio bars for even smoother appearance
-      const barWidth = 1; // Thinner bars to accommodate more bars
-      
-      // Draw audio bars around the inside edge of the circle, extending inward
-      for (let i = 0; i < numBars; i++) {
-        const angle = (i / numBars) * 2 * Math.PI;
-        
-        // Use only half the spectrum and mirror it
-        const halfBars = numBars / 2;
-        let dataIndex;
-        if (i < halfBars) {
-          // First half: use first half of audio spectrum
-          dataIndex = Math.floor((i / halfBars) * (bufferLength / 2));
-        } else {
-          // Second half: mirror the first half
-          const mirrorIndex = numBars - 1 - i;
-          dataIndex = Math.floor((mirrorIndex / halfBars) * (bufferLength / 2));
-        }
-        
-        const amplitude = (dataArray[dataIndex] / 255) * maxBarLength;
-        
-        // Ensure minimum bar length for visibility
-        const minAmplitude = 3;
-        const finalAmplitude = Math.max(amplitude, minAmplitude);
-        
-        // Calculate bar start and end positions
-        // Start at the edge of the widget, extend inward toward center
-        const startX = centerX + widgetRadius * Math.cos(angle);
-        const startY = centerY + widgetRadius * Math.sin(angle);
-        const endX = centerX + (widgetRadius - finalAmplitude) * Math.cos(angle);
-        const endY = centerY + (widgetRadius - finalAmplitude) * Math.sin(angle);
-        
-        // Draw the bar
-        ctx!.beginPath();
-        ctx!.strokeStyle = '#5ec3ff88'; // Faded blue to match Halo theme
-        ctx!.lineWidth = barWidth;
-        ctx!.lineCap = 'round';
-        ctx!.moveTo(startX, startY);
-        ctx!.lineTo(endX, endY);
-        ctx!.stroke();
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const widgetRadius = canvas.width / 2 - 2;
+    const maxBarLength = 20;
+    const numBars = 64;
+    const halfBars = numBars / 2;
+    const minAmplitude = 3;
+
+    const cosAngles = new Float32Array(numBars);
+    const sinAngles = new Float32Array(numBars);
+    const dataIndices = new Uint8Array(numBars);
+
+    for (let i = 0; i < numBars; i++) {
+      const angle = (i / numBars) * 2 * Math.PI;
+      cosAngles[i] = Math.cos(angle);
+      sinAngles[i] = Math.sin(angle);
+      if (i < halfBars) {
+        dataIndices[i] = Math.floor((i / halfBars) * (bufferLength / 2));
+      } else {
+        const mirrorIndex = numBars - 1 - i;
+        dataIndices[i] = Math.floor((mirrorIndex / halfBars) * (bufferLength / 2));
       }
     }
-    
+
+    ctx.strokeStyle = '#5ec3ff88';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+
+    function draw() {
+      animationId = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.beginPath();
+      for (let i = 0; i < numBars; i++) {
+        const finalAmplitude = Math.max((dataArray[dataIndices[i]] / 255) * maxBarLength, minAmplitude);
+        const cos = cosAngles[i];
+        const sin = sinAngles[i];
+        ctx.moveTo(centerX + widgetRadius * cos, centerY + widgetRadius * sin);
+        ctx.lineTo(centerX + (widgetRadius - finalAmplitude) * cos, centerY + (widgetRadius - finalAmplitude) * sin);
+      }
+      ctx.stroke();
+    }
+
     draw();
   }
 
@@ -267,87 +248,59 @@ Skills: Customer Service, Time Management, Problem Solving`
 
   function startSpeakerTracking() {
     if (!audioElement) return;
-    
+
     function updateSpeaker() {
       const currentTime = audioElement.currentTime;
-      
-      // Timing based on the experience audio file
+
       if (currentTime >= 0 && currentTime < 5) {
-        // 0:00 - 0:05 Chief
         if (currentSpeaker !== 'chief' && !isTransitioning) {
           transitionToSpeaker('chief');
         }
       } else if (currentTime >= 5 && currentTime < 23) {
-        // 0:05 - 0:23 Cortana
         if (currentSpeaker !== 'cortana' && !isTransitioning) {
           transitionToSpeaker('cortana');
         }
       } else if (currentTime >= 23 && currentTime < 25) {
-        // 0:23 - 0:25 Chief
         if (currentSpeaker !== 'chief' && !isTransitioning) {
           transitionToSpeaker('chief');
         }
       } else if (currentTime >= 25 && currentTime < 32) {
-        // 0:25 - 0:32 Cortana
         if (currentSpeaker !== 'cortana' && !isTransitioning) {
           transitionToSpeaker('cortana');
         }
       } else if (currentTime >= 32) {
-        // 0:32 - End Chief
         if (currentSpeaker !== 'chief' && !isTransitioning) {
           transitionToSpeaker('chief');
         }
       }
     }
-    
-    // Update speaker every 100ms
-    const speakerInterval = setInterval(updateSpeaker, 100);
-    
-    // Clean up interval when audio ends
+
+    speakerIntervalId = window.setInterval(updateSpeaker, 100);
+
     audioElement.addEventListener('ended', () => {
-      clearInterval(speakerInterval);
+      clearInterval(speakerIntervalId);
     });
   }
 
   function transitionToSpeaker(newSpeaker: string) {
     if (isTransitioning || currentSpeaker === newSpeaker) return;
-    
+
     isTransitioning = true;
-    
-    // Fade out current image
-    const fadeOutDuration = 200; // 200ms fade out
-    const fadeOutSteps = 20;
-    const fadeOutInterval = fadeOutDuration / fadeOutSteps;
-    
-    let fadeOutStep = 0;
-    const fadeOutTimer = setInterval(() => {
-      fadeOutStep++;
-      fadeOpacity = 1 - (fadeOutStep / fadeOutSteps);
-      
-      if (fadeOutStep >= fadeOutSteps) {
-        clearInterval(fadeOutTimer);
-        
-        // Switch speaker
-        currentSpeaker = newSpeaker;
-        
-        // Fade in new image
-        const fadeInDuration = 200; // 200ms fade in
-        const fadeInSteps = 20;
-        const fadeInInterval = fadeInDuration / fadeInSteps;
-        
-        let fadeInStep = 0;
-        const fadeInTimer = setInterval(() => {
-          fadeInStep++;
-          fadeOpacity = fadeInStep / fadeInSteps;
-          
-          if (fadeInStep >= fadeInSteps) {
-            clearInterval(fadeInTimer);
-            fadeOpacity = 1;
-            isTransitioning = false;
-          }
-        }, fadeInInterval);
-      }
-    }, fadeOutInterval);
+    clearTimeout(fadeTimeoutId);
+
+    fadeOpacity = 0;
+
+    fadeTimeoutId = window.setTimeout(() => {
+      currentSpeaker = newSpeaker;
+
+      fadeTimeoutId = window.setTimeout(() => {
+        fadeOpacity = 1;
+
+        fadeTimeoutId = window.setTimeout(() => {
+          isTransitioning = false;
+        }, 200);
+      }, 20);
+    }, 200);
   }
 
   onMount(() => {
@@ -366,14 +319,14 @@ Skills: Customer Service, Time Management, Problem Solving`
       
       return () => {
         window.removeEventListener('storage', handleStorageChange);
-        
-        // Clean up radio widget
-        if (audioContext) {
-          audioContext.close();
+        clearInterval(speakerIntervalId);
+        clearTimeout(fadeTimeoutId);
+        if (animationId) cancelAnimationFrame(animationId);
+        if (audioElement) {
+          audioElement.pause();
+          audioElement.src = '';
         }
-        if (animationId) {
-          cancelAnimationFrame(animationId);
-        }
+        if (audioContext) audioContext.close();
       };
     }
   });
@@ -387,7 +340,7 @@ Skills: Customer Service, Time Management, Problem Solving`
   <div class="crt-background">
     <div class="tv-frame">
       <div class="crt-overlay"></div>
-      <video autoplay loop muted playsinline class="background-video">
+      <video autoplay loop muted playsinline preload="metadata" class="background-video">
         <source src="/menu_background.webm" type="video/webm" />
         Your browser does not support the video tag.
       </video>
@@ -444,7 +397,7 @@ Skills: Customer Service, Time Management, Problem Solving`
   </div>
 {:else}
   <div class="experience-bg">
-    <video autoplay loop muted playsinline class="background-video">
+    <video autoplay loop muted playsinline preload="metadata" class="background-video">
       <source src="/menu_background.webm" type="video/webm" />
       Your browser does not support the video tag.
     </video>
@@ -588,6 +541,8 @@ html, body {
   z-index: 5;
   border-radius: inherit;
   mix-blend-mode: lighten;
+  will-change: opacity;
+  contain: layout style paint;
   background:
     repeating-linear-gradient(
       to bottom,
@@ -1316,8 +1271,7 @@ body > :last-child {
   justify-content: center;
   cursor: pointer;
   z-index: 1000;
-  transition: all 0.5s ease;
-  backdrop-filter: blur(10px);
+  transition: width 0.5s ease, height 0.5s ease, border-color 0.5s ease;
   overflow: visible;
   transform-origin: left center;
 }
@@ -1412,6 +1366,7 @@ body > :last-child {
   object-fit: cover;
   position: relative;
   z-index: 1;
+  transition: opacity 200ms ease;
 }
 
 .waveform-canvas {

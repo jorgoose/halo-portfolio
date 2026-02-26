@@ -619,30 +619,30 @@ html, body {
     min-width: 0;
     height: auto;
     max-height: 85vh;
-    border-width: 6px;
-    border-radius: 1.2rem;
-    box-shadow: 0 0 24px 2px #00bfff33, 0 0 0 6px #222b, 0 4px 16px #000c, 0 0 0 1px #222 inset;
+    border-width: 2vw;
+    border-radius: 0.7rem;
+    box-shadow: 0 0 24px 2px #00bfff33, 0 0 0 2vw #222b, 0 4px 16px #000c, 0 0 0 1px #222 inset;
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
-  
+
   .tv-frame::before {
-    border-radius: 1rem;
+    border-radius: 0.5rem;
   }
-  
+
   .tv-frame::after {
-    border-radius: 0.9rem;
+    border-radius: 0.4rem;
   }
-  
+
   .crt-overlay {
-    border-radius: 1rem;
+    border-radius: 0.5rem;
     width: 100%;
     height: 100%;
     left: 0;
     top: 0;
   }
-  
+
   .background-video {
     width: 100%;
     height: 100%;
@@ -920,10 +920,8 @@ html, body {
   .tv-frame {
     width: 98vw;
     max-width: 100vw;
-    border-width: 6px;
-    border-radius: 1.2rem;
   }
-  
+
   .contact-icon-area {
     display: none !important;
   }

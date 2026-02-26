@@ -322,6 +322,33 @@ html, body {
   z-index: 2;
 }
 
+.tv-frame::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  left: 0; top: 0; right: 0; bottom: 0;
+  border-radius: 2.8rem;
+  background: linear-gradient(120deg, rgba(255,255,255,0.13) 10%, rgba(255,255,255,0.03) 60%, rgba(255,255,255,0.18) 100%);
+  z-index: 2;
+}
+
+.tv-frame::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  left: 0; top: 0; right: 0; bottom: 0;
+  border-radius: 2.7rem;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.03) 0px,
+    rgba(255,255,255,0.03) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  z-index: 3;
+  mix-blend-mode: lighten;
+}
+
 .crt-overlay {
   pointer-events: none;
   position: absolute;
@@ -569,9 +596,9 @@ html, body {
     max-width: 100vw;
     min-width: 0;
     aspect-ratio: 4 / 3;
-    border-width: 6px;
-    border-radius: 1.2rem;
-    box-shadow: 0 0 24px 2px #00bfff33, 0 0 0 12px #222b, 0 4px 16px #000c, 0 0 0 1px #222 inset;
+    border-width: 2vw;
+    border-radius: 0.7rem;
+    box-shadow: 0 0 24px 2px #00bfff33, 0 0 0 2vw #222b, 0 4px 16px #000c, 0 0 0 1px #222 inset;
     height: auto;
     max-height: 90vh;
     display: flex;
@@ -579,23 +606,23 @@ html, body {
     align-items: stretch;
     justify-content: flex-start;
   }
-  
+
   .tv-frame::before {
-    border-radius: 1rem;
+    border-radius: 0.5rem;
   }
-  
+
   .tv-frame::after {
-    border-radius: 0.9rem;
+    border-radius: 0.4rem;
   }
-  
+
   .crt-overlay {
-    border-radius: 1rem;
+    border-radius: 0.5rem;
     width: 100%;
     height: 100%;
     left: 0;
     top: 0;
   }
-  
+
   .background-video {
     width: 100%;
     height: 100%;
@@ -800,10 +827,8 @@ html, body {
   .tv-frame {
     width: 98vw;
     max-width: 100vw;
-    border-width: 6px;
-    border-radius: 1.2rem;
   }
-  
+
   .experience-header {
     font-size: 1.5rem;
     margin-bottom: 0.5rem;

@@ -35,8 +35,8 @@ export async function createGunViewModel(
 	// Parent all loaded meshes under root, make non-pickable
 	const loadedRoot = new B.TransformNode('gunModelRoot', scene);
 	loadedRoot.parent = root;
-	// Scale and position adjustments — will likely need tuning
-	loadedRoot.scaling = new B.Vector3(0.15, 0.15, 0.15);
+	// Scale and position adjustments
+	loadedRoot.scaling = new B.Vector3(1.5, 1.5, 1.5);
 	loadedRoot.rotation = new B.Vector3(0, Math.PI, 0); // face forward
 
 	for (const mesh of result.meshes) {

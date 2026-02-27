@@ -264,8 +264,8 @@ export function createArenaMap(
 	// --- Spawn & Nav Points ---
 	const spawnPoints = {
 		player: [
-			{ x: -half + 3, y: 1.6, z: -half + 3 },
-			{ x: half - 3, y: 1.6, z: half - 3 }
+			{ x: -half + 3, y: 2.4, z: -half + 3 },
+			{ x: half - 3, y: 2.4, z: half - 3 }
 		],
 		enemy: [
 			{ x: half - 5, y: 0.5, z: -half + 5 },

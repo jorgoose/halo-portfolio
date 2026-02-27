@@ -65,7 +65,7 @@ export async function createGunViewModel(
 	const ammoPlane = B.MeshBuilder.CreatePlane('ammoScreen', { width: 0.045, height: 0.022 }, scene);
 	ammoPlane.parent = root;
 	ammoPlane.position = new B.Vector3(0.0, 0.055, 0.18);
-	ammoPlane.rotation = new B.Vector3(-Math.PI / 2.5, 0, 0);
+	ammoPlane.rotation = new B.Vector3(Math.PI / 2.5, Math.PI, 0);
 	ammoPlane.material = ammoMat;
 	ammoPlane.isPickable = false;
 

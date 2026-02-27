@@ -1,61 +1,82 @@
 import type { BabylonNamespace, ArenaMapResult } from './types';
 import {
 	ARENA_SIZE,
-	WALL_HEIGHT,
-	PLATFORM_HEIGHT,
-	COVER_HEIGHT,
+	BASE_HEIGHT,
 	COLOR_AMBER,
-	COLOR_BLUE_ACCENT,
-	COLOR_DARK_METAL,
-	COLOR_FLOOR,
-	COLOR_FORERUNNER_SILVER
+	COLOR_FORERUNNER_SILVER,
+	COLOR_GROUND_GRASS,
+	COLOR_ROCK,
+	COLOR_CLIFF,
+	COLOR_WATER,
+	SKY_ZENITH,
+	SKY_MID,
+	SKY_HORIZON,
+	SKY_BOTTOM
 } from './constants';
 
 export function createArenaMap(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>
 ): ArenaMapResult {
-	const half = ARENA_SIZE / 2;
+	// --- 2A: Procedural Sky Dome ---
+	const skyDome = B.MeshBuilder.CreateSphere('skyDome', { diameter: 500, segments: 16 }, scene);
+	skyDome.scaling = new B.Vector3(-1, 1, 1);
+	skyDome.infiniteDistance = true;
+	skyDome.isPickable = false;
 
-	// --- Materials ---
-	const floorMat = new B.StandardMaterial('floorMat', scene);
-	floorMat.diffuseColor = new B.Color3(...COLOR_FLOOR);
-	floorMat.specularColor = new B.Color3(0.12, 0.12, 0.12);
-	floorMat.emissiveColor = new B.Color3(0.01, 0.01, 0.012);
+	const skyMat = new B.StandardMaterial('skyMat', scene);
+	const skyTex = new B.DynamicTexture('skyTex', { width: 1, height: 256 }, scene, false);
+	const ctx = skyTex.getContext();
 
-	const wallMat = new B.StandardMaterial('wallMat', scene);
-	wallMat.diffuseColor = new B.Color3(...COLOR_DARK_METAL);
-	wallMat.specularColor = new B.Color3(0.18, 0.18, 0.17);
-	wallMat.emissiveColor = new B.Color3(0.03, 0.03, 0.03);
+	// Vertical gradient: zenith (top) → mid → horizon → bottom (fog blend)
+	const grad = ctx.createLinearGradient(0, 0, 0, 256);
+	grad.addColorStop(0.0, SKY_ZENITH);
+	grad.addColorStop(0.3, SKY_MID);
+	grad.addColorStop(0.6, SKY_HORIZON);
+	grad.addColorStop(1.0, SKY_BOTTOM);
+	ctx.fillStyle = grad;
+	ctx.fillRect(0, 0, 1, 256);
+	skyTex.update();
+
+	skyMat.emissiveTexture = skyTex;
+	skyMat.diffuseColor = new B.Color3(0, 0, 0);
+	skyMat.specularColor = new B.Color3(0, 0, 0);
+	skyMat.disableLighting = true;
+	skyMat.backFaceCulling = false;
+	skyDome.material = skyMat;
+
+	// --- 2B: Materials ---
+	const grassMat = new B.StandardMaterial('grassMat', scene);
+	grassMat.diffuseColor = new B.Color3(...COLOR_GROUND_GRASS);
+	grassMat.specularColor = new B.Color3(0.05, 0.05, 0.04);
+
+	const rockMat = new B.StandardMaterial('rockMat', scene);
+	rockMat.diffuseColor = new B.Color3(...COLOR_ROCK);
+	rockMat.specularColor = new B.Color3(0.1, 0.1, 0.09);
+
+	const cliffMat = new B.StandardMaterial('cliffMat', scene);
+	cliffMat.diffuseColor = new B.Color3(...COLOR_CLIFF);
+	cliffMat.specularColor = new B.Color3(0.08, 0.08, 0.07);
+
+	const waterMat = new B.StandardMaterial('waterMat', scene);
+	waterMat.diffuseColor = new B.Color3(...COLOR_WATER);
+	waterMat.specularColor = new B.Color3(0.2, 0.2, 0.2);
+	waterMat.alpha = 0.7;
+
+	const silverMat = new B.StandardMaterial('silverMat', scene);
+	silverMat.diffuseColor = new B.Color3(...COLOR_FORERUNNER_SILVER);
+	silverMat.specularColor = new B.Color3(0.4, 0.4, 0.38);
+	silverMat.emissiveColor = new B.Color3(0.06, 0.06, 0.058);
 
 	const amberGlow = new B.StandardMaterial('amberGlow', scene);
 	amberGlow.emissiveColor = new B.Color3(...COLOR_AMBER);
 	amberGlow.diffuseColor = new B.Color3(0, 0, 0);
 	amberGlow.alpha = 0.9;
 
-	const blueAccent = new B.StandardMaterial('blueAccent', scene);
-	blueAccent.emissiveColor = new B.Color3(...COLOR_BLUE_ACCENT);
-	blueAccent.diffuseColor = new B.Color3(0, 0, 0);
-
 	const platformMat = new B.StandardMaterial('platformMat', scene);
 	platformMat.diffuseColor = new B.Color3(0.12, 0.12, 0.13);
 	platformMat.specularColor = new B.Color3(0.15, 0.15, 0.14);
 	platformMat.emissiveColor = new B.Color3(0.02, 0.02, 0.02);
-
-	const coverMat = new B.StandardMaterial('coverMat', scene);
-	coverMat.diffuseColor = new B.Color3(0.11, 0.11, 0.12);
-	coverMat.specularColor = new B.Color3(0.13, 0.13, 0.12);
-	coverMat.emissiveColor = new B.Color3(0.015, 0.015, 0.015);
-
-	const seamMat = new B.StandardMaterial('seamMat', scene);
-	seamMat.diffuseColor = new B.Color3(0.05, 0.05, 0.06);
-	seamMat.specularColor = new B.Color3(0, 0, 0);
-	seamMat.emissiveColor = new B.Color3(0, 0, 0);
-
-	const silverMat = new B.StandardMaterial('silverMat', scene);
-	silverMat.diffuseColor = new B.Color3(...COLOR_FORERUNNER_SILVER);
-	silverMat.specularColor = new B.Color3(0.4, 0.4, 0.38);
-	silverMat.emissiveColor = new B.Color3(0.06, 0.06, 0.058);
 
 	const hardLightMat = new B.StandardMaterial('hardLightMat', scene);
 	hardLightMat.emissiveColor = new B.Color3(...COLOR_AMBER);
@@ -63,235 +84,200 @@ export function createArenaMap(
 	hardLightMat.alpha = 0.3;
 	hardLightMat.backFaceCulling = false;
 
-	// --- Floor ---
+	// --- 2C: Valley Floor ---
 	const floor = B.MeshBuilder.CreateGround('floor', { width: ARENA_SIZE, height: ARENA_SIZE }, scene);
-	floor.material = floorMat;
+	floor.material = grassMat;
 	floor.checkCollisions = true;
 	floor.receiveShadows = true;
 
-	// Subtle dark panel seam lines (every 8 units, not 4)
-	for (let i = -half; i <= half; i += 8) {
-		const lineX = B.MeshBuilder.CreateBox(`seamX_${i}`, { width: ARENA_SIZE, height: 0.02, depth: 0.04 }, scene);
-		lineX.position.set(0, 0.01, i);
-		lineX.material = seamMat;
-		lineX.isPickable = false;
+	// --- 2D: Two Elevated Bases (Z = ±70) ---
+	const baseZPositions = [-70, 70];
+	baseZPositions.forEach((bz, bi) => {
+		// Main platform box
+		const base = B.MeshBuilder.CreateBox(`base_${bi}`, { width: 20, height: BASE_HEIGHT, depth: 16 }, scene);
+		base.position.set(0, BASE_HEIGHT / 2, bz);
+		base.material = silverMat;
+		base.checkCollisions = true;
 
-		const lineZ = B.MeshBuilder.CreateBox(`seamZ_${i}`, { width: 0.04, height: 0.02, depth: ARENA_SIZE }, scene);
-		lineZ.position.set(i, 0.01, 0);
-		lineZ.material = seamMat;
-		lineZ.isPickable = false;
-	}
+		// Walkable top surface
+		const top = B.MeshBuilder.CreateBox(`baseTop_${bi}`, { width: 20, height: 0.4, depth: 16 }, scene);
+		top.position.set(0, BASE_HEIGHT + 0.2, bz);
+		top.material = platformMat;
+		top.checkCollisions = true;
 
-	// --- Perimeter Walls ---
-	const wallPositions: [number, number, number, number][] = [
-		[0, -half, ARENA_SIZE + 1, 1], // north
-		[0, half, ARENA_SIZE + 1, 1], // south
-		[-half, 0, 1, ARENA_SIZE + 1], // west
-		[half, 0, 1, ARENA_SIZE + 1] // east
-	];
+		// Amber trim around top edge
+		const trimFront = B.MeshBuilder.CreateBox(`baseTrimF_${bi}`, { width: 20.2, height: 0.15, depth: 0.15 }, scene);
+		trimFront.position.set(0, BASE_HEIGHT + 0.4, bz + (bz < 0 ? 8 : -8));
+		trimFront.material = amberGlow;
+		trimFront.isPickable = false;
 
-	wallPositions.forEach(([x, z, w, d], i) => {
-		const wall = B.MeshBuilder.CreateBox(`wall_${i}`, { width: w, height: WALL_HEIGHT, depth: d }, scene);
-		wall.position.set(x, WALL_HEIGHT / 2, z);
-		wall.material = wallMat;
-		wall.checkCollisions = true;
+		const trimBack = B.MeshBuilder.CreateBox(`baseTrimB_${bi}`, { width: 20.2, height: 0.15, depth: 0.15 }, scene);
+		trimBack.position.set(0, BASE_HEIGHT + 0.4, bz + (bz < 0 ? -8 : 8));
+		trimBack.material = amberGlow;
+		trimBack.isPickable = false;
 
-		// Amber trim on top
-		const trim = B.MeshBuilder.CreateBox(`wallTrim_${i}`, { width: w, height: 0.1, depth: d + 0.1 }, scene);
-		trim.position.set(x, WALL_HEIGHT, z);
-		trim.material = amberGlow;
-		trim.isPickable = false;
+		const trimLeft = B.MeshBuilder.CreateBox(`baseTrimL_${bi}`, { width: 0.15, height: 0.15, depth: 16.2 }, scene);
+		trimLeft.position.set(-10, BASE_HEIGHT + 0.4, bz);
+		trimLeft.material = amberGlow;
+		trimLeft.isPickable = false;
 
-		// Engraved horizontal lines at 1/3 and 2/3 height
-		const thirdH = WALL_HEIGHT / 3;
-		for (let li = 1; li <= 2; li++) {
-			const lineY = thirdH * li;
-			const engrave = B.MeshBuilder.CreateBox(`wallEngrave_${i}_${li}`, { width: w + 0.02, height: 0.06, depth: d + 0.12 }, scene);
-			engrave.position.set(x, lineY, z);
-			engrave.material = amberGlow;
-			engrave.isPickable = false;
-		}
+		const trimRight = B.MeshBuilder.CreateBox(`baseTrimR_${bi}`, { width: 0.15, height: 0.15, depth: 16.2 }, scene);
+		trimRight.position.set(10, BASE_HEIGHT + 0.4, bz);
+		trimRight.material = amberGlow;
+		trimRight.isPickable = false;
+
+		// Front ramp facing valley center
+		const frontRampDir = bz < 0 ? 1 : -1;
+		const frontRamp = B.MeshBuilder.CreateBox(`frontRamp_${bi}`, { width: 5, height: 0.3, depth: 16 }, scene);
+		frontRamp.position.set(0, BASE_HEIGHT / 2, bz + frontRampDir * 16);
+		frontRamp.rotation.x = frontRampDir * -Math.atan2(BASE_HEIGHT, 16);
+		frontRamp.material = platformMat;
+		frontRamp.checkCollisions = true;
+
+		// Side ramps
+		const sideXPositions = [-8, 8];
+		sideXPositions.forEach((sx, si) => {
+			const sideRamp = B.MeshBuilder.CreateBox(`sideRamp_${bi}_${si}`, { width: 3, height: 0.3, depth: 10 }, scene);
+			sideRamp.position.set(sx, BASE_HEIGHT / 2, bz + frontRampDir * 13);
+			sideRamp.rotation.x = frontRampDir * -Math.atan2(BASE_HEIGHT, 10);
+			sideRamp.material = platformMat;
+			sideRamp.checkCollisions = true;
+		});
 	});
 
-	// --- Corner Platforms with Stepped Base & Ramps ---
-	const corners: [number, number][] = [
-		[-half + 12, -half + 12],
-		[half - 12, -half + 12],
-		[-half + 12, half - 12],
-		[half - 12, half - 12]
-	];
-
-	corners.forEach(([cx, cz], i) => {
-		// Stepped base
-		const baseStep = B.MeshBuilder.CreateBox(`platBase_${i}`, { width: 12, height: PLATFORM_HEIGHT * 0.3, depth: 12 }, scene);
-		baseStep.position.set(cx, (PLATFORM_HEIGHT * 0.3) / 2, cz);
-		baseStep.material = wallMat;
-		baseStep.checkCollisions = true;
-
-		// Platform top
-		const plat = B.MeshBuilder.CreateBox(`platform_${i}`, { width: 10, height: PLATFORM_HEIGHT, depth: 10 }, scene);
-		plat.position.set(cx, PLATFORM_HEIGHT / 2, cz);
-		plat.material = platformMat;
-		plat.checkCollisions = true;
-
-		// Platform edge glow — amber
-		const edgeTrim = B.MeshBuilder.CreateBox(`platTrim_${i}`, { width: 10.2, height: 0.08, depth: 10.2 }, scene);
-		edgeTrim.position.set(cx, PLATFORM_HEIGHT, cz);
-		edgeTrim.material = amberGlow;
-		edgeTrim.isPickable = false;
-
-		// Ramp facing center
-		const rampDir = new B.Vector3(-Math.sign(cx), 0, -Math.sign(cz)).normalize();
-		const ramp = B.MeshBuilder.CreateBox(`ramp_${i}`, { width: 4, height: 0.15, depth: 6 }, scene);
-		const rampX = cx + rampDir.x * 7;
-		const rampZ = cz + rampDir.z * 7;
-		ramp.position.set(rampX, PLATFORM_HEIGHT / 2, rampZ);
-		const angleDiag = Math.atan2(PLATFORM_HEIGHT, 6);
-		if (Math.abs(rampDir.x) > Math.abs(rampDir.z)) {
-			ramp.rotation.z = rampDir.x > 0 ? angleDiag : -angleDiag;
-		} else {
-			ramp.rotation.x = rampDir.z > 0 ? -angleDiag : angleDiag;
-		}
-		ramp.material = platformMat;
-		ramp.checkCollisions = true;
-	});
-
-	// --- Cover Blocks with Amber Accent Lines ---
-	const coverPositions: [number, number][] = [
-		[-18, -18],
-		[18, -18],
-		[-18, 18],
-		[18, 18]
-	];
-
-	coverPositions.forEach(([x, z], i) => {
-		const cover = B.MeshBuilder.CreateBox(`cover_${i}`, { width: 4, height: COVER_HEIGHT, depth: 4 }, scene);
-		cover.position.set(x, COVER_HEIGHT / 2, z);
-		cover.material = coverMat;
-		cover.checkCollisions = true;
-
-		// Amber accent strip on top
-		const strip = B.MeshBuilder.CreateBox(`coverStrip_${i}`, { width: 4.1, height: 0.06, depth: 0.15 }, scene);
-		strip.position.set(x, COVER_HEIGHT, z);
-		strip.material = amberGlow;
-		strip.isPickable = false;
-
-		// Amber accent line on front face
-		const frontLine = B.MeshBuilder.CreateBox(`coverFront_${i}`, { width: 3.8, height: 0.04, depth: 0.02 }, scene);
-		frontLine.position.set(x, COVER_HEIGHT * 0.5, z + 2.01);
-		frontLine.material = amberGlow;
-		frontLine.isPickable = false;
-
-		// Amber accent line on back face
-		const backLine = B.MeshBuilder.CreateBox(`coverBack_${i}`, { width: 3.8, height: 0.04, depth: 0.02 }, scene);
-		backLine.position.set(x, COVER_HEIGHT * 0.5, z - 2.01);
-		backLine.material = amberGlow;
-		backLine.isPickable = false;
-	});
-
-	// --- Center Platform with Forerunner Pillar ---
-	const centerPlat = B.MeshBuilder.CreateBox('centerPlatform', { width: 10, height: 0.6, depth: 10 }, scene);
-	centerPlat.position.set(0, 0.3, 0);
+	// --- 2E: Central Forerunner Monument ---
+	const centerPlat = B.MeshBuilder.CreateCylinder('centerPlat', { height: 1, diameter: 14, tessellation: 8 }, scene);
+	centerPlat.position.set(0, 0.5, 0);
 	centerPlat.material = platformMat;
 	centerPlat.checkCollisions = true;
 
-	const centerPlatTrim = B.MeshBuilder.CreateBox('centerPlatTrim', { width: 10.2, height: 0.06, depth: 10.2 }, scene);
-	centerPlatTrim.position.set(0, 0.6, 0);
-	centerPlatTrim.material = amberGlow;
-	centerPlatTrim.isPickable = false;
+	const obelisk = B.MeshBuilder.CreateBox('obelisk', { width: 2, height: 10, depth: 2 }, scene);
+	obelisk.position.set(0, 6, 0);
+	obelisk.material = silverMat;
+	obelisk.checkCollisions = true;
 
-	// Center pillar — silver material
-	const pillar = B.MeshBuilder.CreateCylinder('pillar', { height: 6, diameter: 1.5, tessellation: 8 }, scene);
-	pillar.position.set(0, 3.6, 0);
-	pillar.material = silverMat;
-	pillar.checkCollisions = true;
+	const topRing = B.MeshBuilder.CreateTorus('topRing', { diameter: 3.5, thickness: 0.15, tessellation: 16 }, scene);
+	topRing.position.set(0, 11.5, 0);
+	topRing.material = amberGlow;
+	topRing.isPickable = false;
 
-	// Amber ring at top
-	const pillarRing = B.MeshBuilder.CreateTorus('pillarRing', { diameter: 2.2, thickness: 0.1, tessellation: 16 }, scene);
-	pillarRing.position.set(0, 6.6, 0);
-	pillarRing.material = amberGlow;
-	pillarRing.isPickable = false;
-
-	// 4 floating hard-light panels around pillar
+	// 4 hard-light panels facing inward
 	const panelOffsets: [number, number][] = [
-		[3.5, 0],
-		[-3.5, 0],
-		[0, 3.5],
-		[0, -3.5]
+		[4.5, 0],
+		[-4.5, 0],
+		[0, 4.5],
+		[0, -4.5]
 	];
 	panelOffsets.forEach(([px, pz], i) => {
-		const panel = B.MeshBuilder.CreateBox(`hardLight_${i}`, { width: 1.5, height: 2.5, depth: 0.06 }, scene);
-		panel.position.set(px, 4.0, pz);
-		// Rotate panels to face the pillar
-		panel.lookAt(new B.Vector3(0, 4.0, 0));
+		const panel = B.MeshBuilder.CreateBox(`hardLight_${i}`, { width: 1.8, height: 3, depth: 0.06 }, scene);
+		panel.position.set(px, 6, pz);
+		panel.lookAt(new B.Vector3(0, 6, 0));
 		panel.material = hardLightMat;
 		panel.isPickable = false;
 	});
 
-	// Triangle glyph on pillar (decorative Forerunner symbol)
-	const glyphBar1 = B.MeshBuilder.CreateBox('glyph1', { width: 0.6, height: 0.04, depth: 0.04 }, scene);
-	glyphBar1.position.set(0, 4.8, 0.78);
-	glyphBar1.material = amberGlow;
-	glyphBar1.isPickable = false;
-
-	const glyphBar2 = B.MeshBuilder.CreateBox('glyph2', { width: 0.35, height: 0.04, depth: 0.04 }, scene);
-	glyphBar2.position.set(-0.15, 5.05, 0.78);
-	glyphBar2.rotation.z = Math.PI / 3;
-	glyphBar2.material = amberGlow;
-	glyphBar2.isPickable = false;
-
-	const glyphBar3 = B.MeshBuilder.CreateBox('glyph3', { width: 0.35, height: 0.04, depth: 0.04 }, scene);
-	glyphBar3.position.set(0.15, 5.05, 0.78);
-	glyphBar3.rotation.z = -Math.PI / 3;
-	glyphBar3.material = amberGlow;
-	glyphBar3.isPickable = false;
-
-	// --- Additional cover along sides ---
-	const sideCovers: [number, number, number, number][] = [
-		[0, -30, 4, 2],
-		[0, 30, 4, 2],
-		[-30, 0, 2, 4],
-		[30, 0, 2, 4],
-		[-20, -30, 3, 2],
-		[20, 30, 3, 2],
-		[-30, 20, 2, 3],
-		[30, -20, 2, 3]
+	// --- 2F: Rock Formations (~16 clusters) ---
+	const rockDefs: { x: number; z: number; w: number; h: number; d: number; ry: number }[] = [
+		// Valley flanks (X ≈ ±35) — large rock groups
+		{ x: -35, z: -30, w: 6, h: 5, d: 5, ry: 0.3 },
+		{ x: -38, z: -25, w: 4, h: 3.5, d: 4, ry: -0.5 },
+		{ x: -34, z: 10, w: 5, h: 4.5, d: 6, ry: 0.8 },
+		{ x: -37, z: 15, w: 3.5, h: 3, d: 4, ry: -0.2 },
+		{ x: 35, z: -10, w: 5, h: 4, d: 5, ry: -0.4 },
+		{ x: 38, z: -5, w: 4, h: 3.5, d: 3.5, ry: 0.6 },
+		{ x: 34, z: 30, w: 6, h: 5, d: 5, ry: -0.7 },
+		{ x: 37, z: 25, w: 3.5, h: 3, d: 4, ry: 0.1 },
+		// Mid-field — medium rocks between bases and center
+		{ x: -15, z: -40, w: 4, h: 3, d: 4, ry: 0.5 },
+		{ x: 15, z: -35, w: 3.5, h: 2.5, d: 3.5, ry: -0.3 },
+		{ x: -15, z: 40, w: 4, h: 3, d: 4, ry: -0.6 },
+		{ x: 15, z: 35, w: 3.5, h: 2.5, d: 3.5, ry: 0.4 },
+		// Near center — low rocks for close-quarters cover
+		{ x: -8, z: -12, w: 3, h: 2, d: 3, ry: 0.2 },
+		{ x: 8, z: 12, w: 3, h: 2, d: 3, ry: -0.8 },
+		{ x: -10, z: 8, w: 3.5, h: 2.5, d: 3, ry: 0.9 },
+		{ x: 10, z: -8, w: 3, h: 2, d: 3.5, ry: -0.1 }
 	];
 
-	sideCovers.forEach(([x, z, w, d], i) => {
-		const sc = B.MeshBuilder.CreateBox(`sideCover_${i}`, { width: w, height: COVER_HEIGHT * 1.2, depth: d }, scene);
-		sc.position.set(x, (COVER_HEIGHT * 1.2) / 2, z);
-		sc.material = coverMat;
-		sc.checkCollisions = true;
+	rockDefs.forEach((r, i) => {
+		const rock = B.MeshBuilder.CreateBox(`rock_${i}`, { width: r.w, height: r.h, depth: r.d }, scene);
+		rock.position.set(r.x, r.h / 2, r.z);
+		rock.rotation.y = r.ry;
+		rock.material = rockMat;
+		rock.checkCollisions = true;
 	});
 
-	// --- Spawn & Nav Points ---
+	// --- 2G: Cliff Boundaries ---
+	const half = ARENA_SIZE / 2;
+	const cliffHeight = 30;
+
+	// East/West cliff walls
+	for (let i = 0; i < 6; i++) {
+		const zPos = -half + 20 + i * (ARENA_SIZE - 40) / 5;
+
+		const eastCliff = B.MeshBuilder.CreateBox(`cliffE_${i}`, { width: 4, height: cliffHeight, depth: 35 }, scene);
+		eastCliff.position.set(half - 2, cliffHeight / 2, zPos);
+		eastCliff.material = cliffMat;
+		eastCliff.checkCollisions = true;
+		eastCliff.isPickable = false;
+
+		const westCliff = B.MeshBuilder.CreateBox(`cliffW_${i}`, { width: 4, height: cliffHeight, depth: 35 }, scene);
+		westCliff.position.set(-half + 2, cliffHeight / 2, zPos);
+		westCliff.material = cliffMat;
+		westCliff.checkCollisions = true;
+		westCliff.isPickable = false;
+	}
+
+	// North/South cliff walls (behind each base)
+	for (let i = 0; i < 6; i++) {
+		const xPos = -half + 20 + i * (ARENA_SIZE - 40) / 5;
+
+		const northCliff = B.MeshBuilder.CreateBox(`cliffN_${i}`, { width: 35, height: cliffHeight, depth: 4 }, scene);
+		northCliff.position.set(xPos, cliffHeight / 2, -half + 2);
+		northCliff.material = cliffMat;
+		northCliff.checkCollisions = true;
+		northCliff.isPickable = false;
+
+		const southCliff = B.MeshBuilder.CreateBox(`cliffS_${i}`, { width: 35, height: cliffHeight, depth: 4 }, scene);
+		southCliff.position.set(xPos, cliffHeight / 2, half - 2);
+		southCliff.material = cliffMat;
+		southCliff.checkCollisions = true;
+		southCliff.isPickable = false;
+	}
+
+	// --- 2H: Decorative Stream ---
+	const stream = B.MeshBuilder.CreateGround('stream', { width: 3, height: 120 }, scene);
+	stream.position.set(8, 0.02, 0);
+	stream.material = waterMat;
+	stream.isPickable = false;
+
+	// --- 2I: Spawn Points ---
 	const spawnPoints = {
 		player: [
-			{ x: -half + 8, y: 2.4, z: -half + 8 },
-			{ x: half - 8, y: 2.4, z: half - 8 }
+			{ x: 0, y: BASE_HEIGHT + 2.4, z: -70 },
+			{ x: 0, y: BASE_HEIGHT + 2.4, z: 70 }
 		],
 		enemy: [
-			{ x: half - 15, y: 0.5, z: -half + 15 },
-			{ x: -half + 15, y: 0.5, z: half - 15 },
-			{ x: half - 15, y: 0.5, z: half - 15 },
-			{ x: -half + 15, y: 0.5, z: -half + 15 },
-			{ x: 0, y: 0.5, z: half - 15 },
-			{ x: 0, y: 0.5, z: -half + 15 }
-		],
-		nav: [
-			{ x: -25, y: 0.5, z: -25 },
-			{ x: 25, y: 0.5, z: -25 },
-			{ x: 25, y: 0.5, z: 25 },
-			{ x: -25, y: 0.5, z: 25 },
-			{ x: 0, y: 0.5, z: -35 },
-			{ x: 35, y: 0.5, z: 0 },
-			{ x: 0, y: 0.5, z: 35 },
-			{ x: -35, y: 0.5, z: 0 },
-			{ x: -15, y: 0.5, z: 0 },
-			{ x: 15, y: 0.5, z: 0 },
+			{ x: -20, y: 0.5, z: -30 },
+			{ x: 20, y: 0.5, z: -30 },
+			{ x: -20, y: 0.5, z: 30 },
+			{ x: 20, y: 0.5, z: 30 },
 			{ x: 0, y: 0.5, z: -15 },
 			{ x: 0, y: 0.5, z: 15 }
+		],
+		nav: [
+			{ x: -30, y: 0.5, z: -50 },
+			{ x: 30, y: 0.5, z: -50 },
+			{ x: 30, y: 0.5, z: -20 },
+			{ x: 30, y: 0.5, z: 20 },
+			{ x: 30, y: 0.5, z: 50 },
+			{ x: -30, y: 0.5, z: 50 },
+			{ x: -30, y: 0.5, z: 20 },
+			{ x: -30, y: 0.5, z: -20 },
+			{ x: 0, y: 0.5, z: -40 },
+			{ x: 15, y: 0.5, z: 0 },
+			{ x: 0, y: 0.5, z: 40 },
+			{ x: -15, y: 0.5, z: 0 }
 		]
 	};
 

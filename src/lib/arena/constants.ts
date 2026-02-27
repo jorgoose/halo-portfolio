@@ -33,10 +33,11 @@ export const MAX_ENEMIES = 6;
 export const ENEMY_RESPAWN_TIME = 5.0; // seconds
 
 // Arena
-export const ARENA_SIZE = 120;
+export const ARENA_SIZE = 200;
 export const WALL_HEIGHT = 8;
 export const PLATFORM_HEIGHT = 2.5;
 export const COVER_HEIGHT = 1.4;
+export const BASE_HEIGHT = 8;
 
 // Colors (as RGB arrays for Babylon Color3)
 export const COLOR_AMBER = [1.0, 0.7, 0.2] as const; // warm Forerunner gold
@@ -48,9 +49,21 @@ export const COLOR_SHIELD_CYAN = [0.37, 0.76, 1.0] as const; // preserved for sh
 export const COLOR_ENEMY_RED = [1.0, 0.2, 0.1] as const;
 export const COLOR_ORANGE = [1.0, 0.6, 0.1] as const;
 
+// Outdoor colors
+export const COLOR_GROUND_GRASS = [0.22, 0.32, 0.18] as const;
+export const COLOR_ROCK = [0.35, 0.33, 0.3] as const;
+export const COLOR_CLIFF = [0.28, 0.26, 0.22] as const;
+export const COLOR_WATER = [0.15, 0.3, 0.45] as const;
+
+// Sky gradient
+export const SKY_ZENITH = '#4073d9';
+export const SKY_MID = '#78aae6';
+export const SKY_HORIZON = '#a6c0e1';
+export const SKY_BOTTOM = '#8c9eb8';
+
 // Fog
-export const FOG_DENSITY = 0.006;
-export const FOG_COLOR = [0.03, 0.03, 0.04] as const;
+export const FOG_DENSITY = 0.0015;
+export const FOG_COLOR = [0.55, 0.62, 0.72] as const;
 
 // VFX
 export const MUZZLE_FLASH_DURATION = 0.05;

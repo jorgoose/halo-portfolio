@@ -64,23 +64,23 @@ export async function initGameManager(
 
 	// Glow layer
 	const glowLayer = new B.GlowLayer('glow', scene, { blurKernelSize: 32 });
-	glowLayer.intensity = 0.45;
+	glowLayer.intensity = 0.3;
 
 	// --- Lighting ---
 	const hemiLight = new B.HemisphericLight('hemiLight', new B.Vector3(0, 1, 0), scene);
-	hemiLight.intensity = 0.4;
-	hemiLight.diffuse = new B.Color3(0.7, 0.65, 0.55);
-	hemiLight.groundColor = new B.Color3(0.08, 0.07, 0.06);
+	hemiLight.intensity = 0.7;
+	hemiLight.diffuse = new B.Color3(0.85, 0.88, 0.95);
+	hemiLight.groundColor = new B.Color3(0.25, 0.22, 0.18);
 
 	const dirLight = new B.DirectionalLight('dirLight', new B.Vector3(-0.5, -1, 0.5), scene);
-	dirLight.intensity = 0.3;
-	dirLight.diffuse = new B.Color3(0.6, 0.55, 0.45);
+	dirLight.intensity = 0.8;
+	dirLight.diffuse = new B.Color3(1.0, 0.95, 0.85);
 
-	// Amber point light at center
-	const centerLight = new B.PointLight('centerLight', new B.Vector3(0, 4, 0), scene);
-	centerLight.intensity = 0.5;
+	// Monument point light at center
+	const centerLight = new B.PointLight('centerLight', new B.Vector3(0, 8, 0), scene);
+	centerLight.intensity = 0.4;
 	centerLight.diffuse = new B.Color3(1.0, 0.7, 0.2);
-	centerLight.range = 60;
+	centerLight.range = 40;
 
 	// --- Arena Map ---
 	const { spawnPoints } = createArenaMap(B, scene);

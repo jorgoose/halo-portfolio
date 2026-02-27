@@ -27,38 +27,52 @@ export function createVFXManager(
 	ctx.fillRect(0, 0, 64, 64);
 	particleTex.update();
 
+	// Shared muzzle flash material (reused every shot)
+	const flashMat = new B.StandardMaterial('flashMat', scene);
+	flashMat.emissiveColor = new B.Color3(1.0, 0.85, 0.4);
+	flashMat.diffuseColor = new B.Color3(0, 0, 0);
+	flashMat.disableLighting = true;
+	flashMat.backFaceCulling = false;
+
+	// Procedural flash texture — bright core with soft falloff
+	const flashTex = new B.DynamicTexture('flashTex', 64, scene, false);
+	flashTex.hasAlpha = true;
+	const fCtx = flashTex.getContext();
+	const fGrad = fCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+	fGrad.addColorStop(0, 'rgba(255, 240, 180, 1)');
+	fGrad.addColorStop(0.2, 'rgba(255, 200, 80, 0.9)');
+	fGrad.addColorStop(0.5, 'rgba(255, 140, 30, 0.5)');
+	fGrad.addColorStop(1, 'rgba(255, 80, 0, 0)');
+	fCtx.fillStyle = fGrad;
+	fCtx.fillRect(0, 0, 64, 64);
+	flashTex.update();
+	flashMat.emissiveTexture = flashTex;
+	flashMat.opacityTexture = flashTex;
+
 	function muzzleFlash(pos: InstanceType<BabylonNamespace['Vector3']>, dir: InstanceType<BabylonNamespace['Vector3']>) {
 		const fwd = dir.normalize();
 
-		// Particle burst emitting forward from barrel tip
-		const ps = new B.ParticleSystem('muzzleFlash', 15, scene);
-		ps.particleTexture = particleTex;
-		ps.emitter = pos.add(fwd.scale(0.1));
+		// Billboard plane at barrel tip — always faces camera
+		const flash = B.MeshBuilder.CreatePlane('mFlash', { size: 0.25 }, scene);
+		flash.position = pos.add(fwd.scale(0.15));
+		flash.billboardMode = B.Mesh.BILLBOARDMODE_ALL;
+		flash.material = flashMat;
+		flash.isPickable = false;
 
-		ps.minLifeTime = 0.02;
-		ps.maxLifeTime = 0.06;
-		ps.minSize = 0.04;
-		ps.maxSize = 0.12;
-		ps.emitRate = 600;
-		ps.minEmitPower = 4;
-		ps.maxEmitPower = 8;
-
-		// Spray in a tight cone along the firing direction
-		const spread = 0.3;
-		ps.direction1 = new B.Vector3(fwd.x - spread, fwd.y - spread, fwd.z - spread);
-		ps.direction2 = new B.Vector3(fwd.x + spread, fwd.y + spread, fwd.z + spread);
-
-		ps.color1 = new B.Color4(1.0, 0.9, 0.5, 1);
-		ps.color2 = new B.Color4(1.0, 0.6, 0.2, 0.8);
-		ps.colorDead = new B.Color4(1.0, 0.3, 0.0, 0);
-
-		ps.gravity = new B.Vector3(0, 0, 0);
-		ps.start();
-
-		setTimeout(() => {
-			ps.stop();
-			setTimeout(() => ps.dispose(), 100);
-		}, MUZZLE_FLASH_DURATION * 1000);
+		// Animate: scale down and fade over ~60ms
+		let elapsed = 0;
+		const duration = MUZZLE_FLASH_DURATION + 0.02;
+		const tick = () => {
+			elapsed += scene.getEngine().getDeltaTime() / 1000;
+			const t = Math.min(elapsed / duration, 1);
+			const scale = 1.0 + 0.5 * (1 - t); // start 1.5x, shrink to 1x
+			flash.scaling.setAll(scale * (1 - t * 0.6));
+			if (t >= 1) {
+				scene.unregisterBeforeRender(tick);
+				flash.dispose();
+			}
+		};
+		scene.registerBeforeRender(tick);
 	}
 
 	function impactSpark(pos: InstanceType<BabylonNamespace['Vector3']>) {

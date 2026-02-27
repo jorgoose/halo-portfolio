@@ -4,6 +4,7 @@ export interface GunViewModel {
 	barrelTip: InstanceType<BabylonNamespace['Vector3']>;
 	fireRecoil: () => void;
 	reloadAnim: () => void;
+	setAmmo: (count: number) => void;
 	update: (dt: number) => void;
 	reset: () => void;
 	dispose: () => void;
@@ -49,6 +50,54 @@ export async function createGunViewModel(
 	// Barrel tip reference point (local space relative to root)
 	// Adjusted for the model — tip of barrel in front
 	const barrelTipLocal = new B.Vector3(0, 0.01, 0.47);
+
+	// --- Ammo Counter Screen ---
+	const ammoTex = new B.DynamicTexture('ammoTex', { width: 128, height: 64 }, scene, false);
+	ammoTex.hasAlpha = true;
+
+	const ammoMat = new B.StandardMaterial('ammoScreenMat', scene);
+	ammoMat.emissiveTexture = ammoTex;
+	ammoMat.diffuseColor = new B.Color3(0, 0, 0);
+	ammoMat.specularColor = new B.Color3(0, 0, 0);
+	ammoMat.disableLighting = true;
+	ammoMat.backFaceCulling = false;
+
+	const ammoPlane = B.MeshBuilder.CreatePlane('ammoScreen', { width: 0.045, height: 0.022 }, scene);
+	ammoPlane.parent = root;
+	ammoPlane.position = new B.Vector3(0.0, 0.055, 0.18);
+	ammoPlane.rotation = new B.Vector3(-Math.PI / 2.5, 0, 0);
+	ammoPlane.material = ammoMat;
+	ammoPlane.isPickable = false;
+
+	let currentAmmo = 32;
+
+	function drawAmmoCount(count: number) {
+		const ctx = ammoTex.getContext() as unknown as CanvasRenderingContext2D;
+		ctx.clearRect(0, 0, 128, 64);
+
+		// Dark screen background
+		ctx.fillStyle = 'rgba(0, 8, 16, 0.9)';
+		ctx.fillRect(0, 0, 128, 64);
+
+		// Ammo number — cyan digital style
+		ctx.fillStyle = count <= 8 ? '#ff4422' : '#44ddff';
+		ctx.font = 'bold 48px monospace';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText(String(count).padStart(2, '0'), 64, 34);
+
+		ammoTex.update();
+	}
+
+	function setAmmo(count: number) {
+		if (count !== currentAmmo) {
+			currentAmmo = count;
+			drawAmmoCount(count);
+		}
+	}
+
+	// Initial draw
+	drawAmmoCount(currentAmmo);
 
 	// --- Animation State ---
 	let recoilTime = -1;
@@ -137,6 +186,7 @@ export async function createGunViewModel(
 		},
 		fireRecoil,
 		reloadAnim,
+		setAmmo,
 		update,
 		reset,
 		dispose

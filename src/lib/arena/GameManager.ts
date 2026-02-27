@@ -150,6 +150,8 @@ export async function initGameManager(
 			}
 		}
 
+		gunViewModel.setAmmo(weapon.ammo);
+
 		const playerDamage = enemySystem.update(dt, player.getPosition());
 
 		if (playerDamage > 0) {

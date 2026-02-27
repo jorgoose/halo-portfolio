@@ -11,7 +11,8 @@ const menuItems = [
   { label: 'EXPERIENCE', link: '/experience' },
   { label: 'PROJECTS', link: '/projects' },
   { label: 'SKILLS', link: '/skills' },
-  { label: 'CONTACT', link: '/contact' }
+  { label: 'CONTACT', link: '/contact' },
+  { label: 'ARENA', link: '/arena' }
 ];
 
 function toggleCrtMode() {

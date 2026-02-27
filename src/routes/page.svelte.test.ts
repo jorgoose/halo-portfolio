@@ -19,7 +19,7 @@ describe('Home Page (+page.svelte)', () => {
 		render(Page);
 		
 		// Check that all menu items are present
-		const menuItems = ['ABOUT', 'EXPERIENCE', 'PROJECTS', 'SKILLS', 'CONTACT'];
+		const menuItems = ['ABOUT', 'EXPERIENCE', 'PROJECTS', 'SKILLS', 'CONTACT', 'ARENA'];
 		
 		for (const item of menuItems) {
 			const menuItem = page.getByText(item);
@@ -36,12 +36,14 @@ describe('Home Page (+page.svelte)', () => {
 		const projectsLink = page.getByRole('link', { name: 'PROJECTS' });
 		const skillsLink = page.getByRole('link', { name: 'SKILLS' });
 		const contactLink = page.getByRole('link', { name: 'CONTACT' });
-		
+		const arenaLink = page.getByRole('link', { name: 'ARENA' });
+
 		await expect.element(aboutLink).toHaveAttribute('href', '/about');
 		await expect.element(experienceLink).toHaveAttribute('href', '/experience');
 		await expect.element(projectsLink).toHaveAttribute('href', '/projects');
 		await expect.element(skillsLink).toHaveAttribute('href', '/skills');
 		await expect.element(contactLink).toHaveAttribute('href', '/contact');
+		await expect.element(arenaLink).toHaveAttribute('href', '/arena');
 	});
 
 	it('should toggle CRT mode', async () => {

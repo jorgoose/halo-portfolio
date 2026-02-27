@@ -45,6 +45,7 @@
 		"vitest-browser-svelte": "^0.1.0"
 	},
 	"dependencies": {
+		"@babylonjs/core": "^8.53.0",
 		"three": "^0.178.0"
 	}
 }

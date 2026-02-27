@@ -1,37 +1,70 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import type { HudSnapshot } from '$lib/arena/types';
+  import type { GameManager } from '$lib/arena/GameManager';
+
   let engineLoading = false;
   let engineReady = false;
   let canvas: HTMLCanvasElement;
+  let gameManager: GameManager | null = null;
+
+  let hud: HudSnapshot = {
+    health: 100,
+    maxHealth: 100,
+    shield: 100,
+    maxShield: 100,
+    ammo: 32,
+    maxAmmo: 32,
+    reserveAmmo: 96,
+    kills: 0,
+    reloading: false,
+    shieldRecharging: false,
+    gameOver: false,
+    paused: false
+  };
+
+  function onHudUpdate(snapshot: HudSnapshot) {
+    hud = snapshot;
+  }
 
   async function engage() {
     if (engineLoading || engineReady) return;
     engineLoading = true;
 
     try {
-      const BABYLON = await import('@babylonjs/core');
+      const { initGameManager } = await import('$lib/arena/GameManager');
       canvas.style.display = 'block';
 
-      const engine = new BABYLON.Engine(canvas, true);
-      const scene = new BABYLON.Scene(engine);
-      scene.clearColor = new BABYLON.Color4(0, 0, 0, 1);
-
-      const camera = new BABYLON.FreeCamera('camera', new BABYLON.Vector3(0, 1.6, -5), scene);
-      camera.setTarget(BABYLON.Vector3.Zero());
-      camera.attachControl(canvas, true);
-
-      new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
-
-      engine.runRenderLoop(() => scene.render());
-
-      window.addEventListener('resize', () => engine.resize());
-
+      gameManager = await initGameManager(canvas, onHudUpdate);
       engineReady = true;
     } catch (err) {
-      console.error('Babylon.js failed to load:', err);
+      console.error('Arena failed to load:', err);
     } finally {
       engineLoading = false;
     }
   }
+
+  function handleResume() {
+    if (gameManager && !hud.gameOver) {
+      canvas.requestPointerLock();
+    }
+  }
+
+  function handleRestart() {
+    if (gameManager) {
+      gameManager.restart();
+    }
+  }
+
+  onDestroy(() => {
+    if (gameManager) {
+      gameManager.dispose();
+      gameManager = null;
+    }
+  });
+
+  $: shieldPct = (hud.shield / hud.maxShield) * 100;
+  $: healthPct = (hud.health / hud.maxHealth) * 100;
 </script>
 
 <svelte:head>
@@ -60,6 +93,87 @@
   {/if}
 
   <canvas bind:this={canvas} class="game-canvas"></canvas>
+
+  {#if engineReady}
+    <!-- HUD Overlay -->
+    <div class="hud-overlay">
+      <!-- Crosshair -->
+      <div class="crosshair" class:hit={hud.reloading === false && hud.ammo > 0}>
+        <div class="crosshair-h"></div>
+        <div class="crosshair-v"></div>
+      </div>
+
+      <!-- Shield Bar -->
+      <div class="shield-bar-container">
+        <div class="bar-label">SHIELD</div>
+        <div class="bar-track shield-track">
+          <div
+            class="bar-fill shield-fill"
+            class:recharging={hud.shieldRecharging}
+            style="width: {shieldPct}%"
+          ></div>
+        </div>
+        <div class="bar-value">{Math.ceil(hud.shield)}</div>
+      </div>
+
+      <!-- Health Bar -->
+      <div class="health-bar-container">
+        <div class="bar-label">HEALTH</div>
+        <div class="bar-track health-track">
+          <div
+            class="bar-fill health-fill"
+            class:low={healthPct < 30}
+            style="width: {healthPct}%"
+          ></div>
+        </div>
+        <div class="bar-value">{Math.ceil(hud.health)}</div>
+      </div>
+
+      <!-- Ammo Counter -->
+      <div class="ammo-container">
+        {#if hud.reloading}
+          <div class="reload-text">RELOADING</div>
+        {:else}
+          <div class="ammo-current">{hud.ammo}</div>
+          <div class="ammo-divider">/</div>
+          <div class="ammo-reserve">{hud.reserveAmmo}</div>
+        {/if}
+      </div>
+
+      <!-- Kill Counter -->
+      <div class="kill-container">
+        <div class="kill-label">KILLS</div>
+        <div class="kill-count">{hud.kills}</div>
+      </div>
+
+      <!-- Pause Overlay -->
+      {#if hud.paused && !hud.gameOver}
+        <div class="overlay-screen">
+          <div class="overlay-title">PAUSED</div>
+          <button class="overlay-btn" on:click={handleResume}>
+            CLICK TO RESUME
+          </button>
+          <div class="overlay-hint">ESC to pause / click to resume</div>
+        </div>
+      {/if}
+
+      <!-- Game Over Overlay -->
+      {#if hud.gameOver}
+        <div class="overlay-screen game-over">
+          <div class="overlay-title game-over-title">SIMULATION TERMINATED</div>
+          <div class="game-over-stats">
+            <div class="stat-row">
+              <span class="stat-label">KILLS</span>
+              <span class="stat-value">{hud.kills}</span>
+            </div>
+          </div>
+          <button class="overlay-btn restart-btn" on:click={handleRestart}>
+            RESTART
+          </button>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   {#if !engineReady}
     <div class="back-row">
@@ -240,6 +354,295 @@ html, body {
   color: #fff;
 }
 
+/* ===== HUD OVERLAY ===== */
+.hud-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 20;
+  pointer-events: none;
+  font-family: 'Xolonium', Arial, sans-serif;
+}
+
+/* Crosshair */
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+}
+
+.crosshair-h, .crosshair-v {
+  position: absolute;
+  background: rgba(94, 195, 255, 0.85);
+  box-shadow: 0 0 4px #5ec3ff;
+}
+
+.crosshair-h {
+  width: 24px;
+  height: 2px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.crosshair-v {
+  width: 2px;
+  height: 24px;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+/* Shield Bar */
+.shield-bar-container {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-label {
+  font-size: 0.65rem;
+  color: rgba(94, 195, 255, 0.7);
+  letter-spacing: 0.15em;
+  min-width: 52px;
+  text-align: right;
+}
+
+.bar-track {
+  width: 200px;
+  height: 8px;
+  background: rgba(94, 195, 255, 0.1);
+  border: 1px solid rgba(94, 195, 255, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  transition: width 0.15s ease-out;
+  border-radius: 1px;
+}
+
+.shield-fill {
+  background: linear-gradient(90deg, #1976d2, #5ec3ff);
+  box-shadow: 0 0 6px rgba(94, 195, 255, 0.4);
+}
+
+.shield-fill.recharging {
+  animation: shield-pulse 0.6s ease-in-out infinite;
+}
+
+@keyframes shield-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.bar-value {
+  font-size: 0.7rem;
+  color: rgba(94, 195, 255, 0.8);
+  min-width: 30px;
+}
+
+/* Health Bar */
+.health-bar-container {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.health-fill {
+  background: linear-gradient(90deg, #d32f2f, #ff6659);
+  box-shadow: 0 0 6px rgba(211, 47, 47, 0.4);
+}
+
+.health-fill.low {
+  animation: health-critical 0.5s ease-in-out infinite;
+}
+
+@keyframes health-critical {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; box-shadow: 0 0 12px rgba(255, 0, 0, 0.6); }
+}
+
+.health-track {
+  border-color: rgba(211, 47, 47, 0.25);
+  background: rgba(211, 47, 47, 0.08);
+}
+
+.health-bar-container .bar-label {
+  color: rgba(255, 102, 89, 0.7);
+}
+
+.health-bar-container .bar-value {
+  color: rgba(255, 102, 89, 0.8);
+}
+
+/* Ammo Counter */
+.ammo-container {
+  position: absolute;
+  bottom: 32px;
+  right: 40px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.ammo-current {
+  font-size: 2rem;
+  color: #5ec3ff;
+  text-shadow: 0 0 8px rgba(94, 195, 255, 0.5);
+}
+
+.ammo-divider {
+  font-size: 1.2rem;
+  color: rgba(94, 195, 255, 0.4);
+  margin: 0 2px;
+}
+
+.ammo-reserve {
+  font-size: 1rem;
+  color: rgba(94, 195, 255, 0.6);
+}
+
+.reload-text {
+  font-size: 1rem;
+  color: #5ec3ff;
+  letter-spacing: 0.2em;
+  animation: reload-blink 0.5s ease-in-out infinite;
+}
+
+@keyframes reload-blink {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* Kill Counter */
+.kill-container {
+  position: absolute;
+  bottom: 32px;
+  left: 40px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.kill-label {
+  font-size: 0.65rem;
+  color: rgba(94, 195, 255, 0.6);
+  letter-spacing: 0.15em;
+}
+
+.kill-count {
+  font-size: 1.5rem;
+  color: #5ec3ff;
+  text-shadow: 0 0 6px rgba(94, 195, 255, 0.4);
+}
+
+/* Overlay Screens (Pause / Game Over) */
+.overlay-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 5, 15, 0.75);
+  pointer-events: auto;
+  gap: 1.5rem;
+}
+
+.overlay-title {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  color: #5ec3ff;
+  letter-spacing: 0.3em;
+  text-shadow: 0 0 20px rgba(94, 195, 255, 0.5);
+}
+
+.game-over-title {
+  color: #ff6659;
+  text-shadow: 0 0 20px rgba(255, 50, 50, 0.5);
+}
+
+.overlay-btn {
+  font-family: 'Xolonium', Arial, sans-serif;
+  font-size: clamp(0.9rem, 2vw, 1.2rem);
+  color: #5ec3ff;
+  background: rgba(10, 20, 40, 0.8);
+  border: 2px solid #5ec3ff;
+  border-radius: 1.2rem;
+  padding: 0.7rem 2.5rem;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  text-transform: uppercase;
+  box-shadow: 0 0 12px rgba(94, 195, 255, 0.3);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  pointer-events: auto;
+}
+
+.overlay-btn:hover {
+  background: rgba(94, 195, 255, 0.15);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(94, 195, 255, 0.5);
+}
+
+.restart-btn {
+  border-color: #ff6659;
+  color: #ff6659;
+  box-shadow: 0 0 12px rgba(255, 50, 50, 0.3);
+}
+
+.restart-btn:hover {
+  background: rgba(255, 50, 50, 0.15);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(255, 50, 50, 0.5);
+}
+
+.overlay-hint {
+  font-size: 0.7rem;
+  color: rgba(94, 195, 255, 0.4);
+  letter-spacing: 0.15em;
+}
+
+.game-over-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stat-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: rgba(255, 102, 89, 0.6);
+  letter-spacing: 0.15em;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  color: #ff6659;
+  text-shadow: 0 0 8px rgba(255, 50, 50, 0.4);
+}
+
 @media (max-width: 600px) {
   .arena-title {
     font-size: clamp(3rem, 14vw, 5rem);
@@ -254,6 +657,24 @@ html, body {
   .engage-btn {
     font-size: clamp(0.9rem, 4vw, 1.2rem);
     padding: 0.6rem 2rem;
+  }
+
+  .bar-track {
+    width: 120px;
+  }
+
+  .ammo-current {
+    font-size: 1.4rem;
+  }
+
+  .ammo-container {
+    right: 20px;
+    bottom: 20px;
+  }
+
+  .kill-container {
+    left: 20px;
+    bottom: 20px;
   }
 }
 </style>

@@ -39,16 +39,18 @@ export const PLATFORM_HEIGHT = 2;
 export const COVER_HEIGHT = 1.2;
 
 // Colors (as RGB arrays for Babylon Color3)
-export const COLOR_CYAN = [0.37, 0.76, 1.0] as const; // #5ec3ff
-export const COLOR_BLUE = [0.1, 0.46, 0.82] as const; // #1976d2
-export const COLOR_DARK_METAL = [0.06, 0.08, 0.12] as const;
-export const COLOR_FLOOR = [0.04, 0.05, 0.08] as const;
+export const COLOR_AMBER = [1.0, 0.7, 0.2] as const; // warm Forerunner gold
+export const COLOR_BLUE_ACCENT = [0.3, 0.4, 0.8] as const;
+export const COLOR_DARK_METAL = [0.15, 0.16, 0.18] as const; // silver-grey
+export const COLOR_FLOOR = [0.1, 0.11, 0.13] as const;
+export const COLOR_FORERUNNER_SILVER = [0.5, 0.52, 0.55] as const;
+export const COLOR_SHIELD_CYAN = [0.37, 0.76, 1.0] as const; // preserved for shield VFX
 export const COLOR_ENEMY_RED = [1.0, 0.2, 0.1] as const;
 export const COLOR_ORANGE = [1.0, 0.6, 0.1] as const;
 
 // Fog
 export const FOG_DENSITY = 0.015;
-export const FOG_COLOR = [0.02, 0.03, 0.06] as const;
+export const FOG_COLOR = [0.03, 0.03, 0.04] as const;
 
 // VFX
 export const MUZZLE_FLASH_DURATION = 0.05;

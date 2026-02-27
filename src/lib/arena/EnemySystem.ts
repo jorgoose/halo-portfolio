@@ -34,7 +34,7 @@ export function createEnemySystem(
 	// --- Materials ---
 	const bodyMat = new B.StandardMaterial('enemyBodyMat', scene);
 	bodyMat.diffuseColor = new B.Color3(...COLOR_DARK_METAL);
-	bodyMat.emissiveColor = new B.Color3(0.05, 0.05, 0.08);
+	bodyMat.emissiveColor = new B.Color3(0.08, 0.08, 0.08);
 
 	const visorMat = new B.StandardMaterial('enemyVisorMat', scene);
 	visorMat.emissiveColor = new B.Color3(...COLOR_ENEMY_RED);

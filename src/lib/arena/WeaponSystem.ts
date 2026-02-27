@@ -1,6 +1,7 @@
 import type { BabylonNamespace } from './types';
 import type { VFXManager } from './VFXManager';
 import type { PlayerController } from './PlayerController';
+import type { GunViewModel } from './GunViewModel';
 import {
 	WEAPON_DAMAGE,
 	FIRE_RATE,
@@ -26,7 +27,8 @@ export function createWeaponSystem(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>,
 	player: PlayerController,
-	vfx: VFXManager
+	vfx: VFXManager,
+	gun: GunViewModel
 ): WeaponSystem {
 	let ammo = MAX_AMMO;
 	let reserveAmmo = RESERVE_AMMO;
@@ -46,8 +48,9 @@ export function createWeaponSystem(
 
 		const ray = player.getForwardRay();
 
-		// Muzzle flash
-		vfx.muzzleFlash(ray.origin.clone(), ray.direction.clone());
+		// Gun recoil + muzzle flash from barrel tip
+		gun.fireRecoil();
+		vfx.muzzleFlash(gun.barrelTip, ray.direction.clone());
 
 		// Raycast
 		const pick = scene.pickWithRay(ray, (mesh) => {
@@ -83,6 +86,7 @@ export function createWeaponSystem(
 		if (reloading || ammo >= MAX_AMMO || reserveAmmo <= 0) return;
 		reloading = true;
 		reloadTimer = RELOAD_TIME;
+		gun.reloadAnim();
 	}
 
 	function update(dt: number) {

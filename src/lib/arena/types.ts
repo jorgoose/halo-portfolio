@@ -79,4 +79,6 @@ export interface BabylonNamespace {
 	AbstractMesh: typeof import('@babylonjs/core').AbstractMesh;
 	KeyboardEventTypes: typeof import('@babylonjs/core').KeyboardEventTypes;
 	PointerEventTypes: typeof import('@babylonjs/core').PointerEventTypes;
+	TransformNode: typeof import('@babylonjs/core').TransformNode;
+	PointLight: typeof import('@babylonjs/core').PointLight;
 }

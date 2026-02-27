@@ -1,5 +1,5 @@
 import type { BabylonNamespace } from './types';
-import { COLOR_CYAN, COLOR_ORANGE, COLOR_ENEMY_RED, MUZZLE_FLASH_DURATION } from './constants';
+import { COLOR_AMBER, COLOR_ORANGE, COLOR_ENEMY_RED, COLOR_SHIELD_CYAN, MUZZLE_FLASH_DURATION } from './constants';
 
 export interface VFXManager {
 	muzzleFlash: (pos: InstanceType<BabylonNamespace['Vector3']>, dir: InstanceType<BabylonNamespace['Vector3']>) => void;
@@ -34,7 +34,7 @@ export function createVFXManager(
 		flash.isPickable = false;
 
 		const mat = new B.StandardMaterial('flashMat', scene);
-		mat.emissiveColor = new B.Color3(...COLOR_CYAN);
+		mat.emissiveColor = new B.Color3(1.0, 0.85, 0.5);
 		mat.diffuseColor = new B.Color3(0, 0, 0);
 		mat.alpha = 0.9;
 		flash.material = mat;
@@ -62,7 +62,7 @@ export function createVFXManager(
 		ps.direction2 = new B.Vector3(1, 2, 1);
 
 		ps.color1 = new B.Color4(...COLOR_ORANGE, 1);
-		ps.color2 = new B.Color4(...COLOR_CYAN, 1);
+		ps.color2 = new B.Color4(...COLOR_AMBER, 1);
 		ps.colorDead = new B.Color4(0, 0, 0, 0);
 
 		ps.gravity = new B.Vector3(0, -5, 0);
@@ -80,7 +80,7 @@ export function createVFXManager(
 		flare.isPickable = false;
 
 		const mat = new B.StandardMaterial('shieldFlareMat', scene);
-		mat.emissiveColor = new B.Color3(...COLOR_CYAN);
+		mat.emissiveColor = new B.Color3(...COLOR_SHIELD_CYAN);
 		mat.diffuseColor = new B.Color3(0, 0, 0);
 		mat.alpha = 0.25;
 		mat.backFaceCulling = false;

@@ -10,6 +10,8 @@ import { createEnemySystem } from './EnemySystem';
 import type { EnemySystem } from './EnemySystem';
 import { createVFXManager } from './VFXManager';
 import type { VFXManager } from './VFXManager';
+import { createGunViewModel } from './GunViewModel';
+import type { GunViewModel } from './GunViewModel';
 import { createHudState } from './HudState';
 import { FOG_COLOR, FOG_DENSITY, WEAPON_DAMAGE } from './constants';
 
@@ -45,7 +47,9 @@ export async function initGameManager(
 		Mesh: BABYLON.Mesh,
 		AbstractMesh: BABYLON.AbstractMesh,
 		KeyboardEventTypes: BABYLON.KeyboardEventTypes,
-		PointerEventTypes: BABYLON.PointerEventTypes
+		PointerEventTypes: BABYLON.PointerEventTypes,
+		TransformNode: BABYLON.TransformNode,
+		PointLight: BABYLON.PointLight
 	};
 
 	// --- Engine & Scene ---
@@ -60,17 +64,23 @@ export async function initGameManager(
 
 	// Glow layer
 	const glowLayer = new B.GlowLayer('glow', scene, { blurKernelSize: 32 });
-	glowLayer.intensity = 0.6;
+	glowLayer.intensity = 0.45;
 
 	// --- Lighting ---
 	const hemiLight = new B.HemisphericLight('hemiLight', new B.Vector3(0, 1, 0), scene);
 	hemiLight.intensity = 0.4;
-	hemiLight.diffuse = new B.Color3(0.6, 0.7, 0.9);
-	hemiLight.groundColor = new B.Color3(0.05, 0.08, 0.15);
+	hemiLight.diffuse = new B.Color3(0.7, 0.65, 0.55);
+	hemiLight.groundColor = new B.Color3(0.08, 0.07, 0.06);
 
 	const dirLight = new B.DirectionalLight('dirLight', new B.Vector3(-0.5, -1, 0.5), scene);
 	dirLight.intensity = 0.3;
-	dirLight.diffuse = new B.Color3(0.4, 0.5, 0.8);
+	dirLight.diffuse = new B.Color3(0.6, 0.55, 0.45);
+
+	// Amber point light at center
+	const centerLight = new B.PointLight('centerLight', new B.Vector3(0, 4, 0), scene);
+	centerLight.intensity = 0.5;
+	centerLight.diffuse = new B.Color3(1.0, 0.7, 0.2);
+	centerLight.range = 25;
 
 	// --- Arena Map ---
 	const { spawnPoints } = createArenaMap(B, scene);
@@ -82,7 +92,8 @@ export async function initGameManager(
 	// --- Systems ---
 	let healthShield: HealthShieldSystem = createHealthShieldSystem();
 	const vfxManager: VFXManager = createVFXManager(B, scene);
-	let weapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager);
+	let gunViewModel: GunViewModel = createGunViewModel(B, scene, player.camera);
+	let weapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, gunViewModel);
 	let enemySystem: EnemySystem = createEnemySystem(B, scene, spawnPoints, vfxManager);
 	const hud = createHudState(hudCallback);
 
@@ -130,6 +141,7 @@ export async function initGameManager(
 
 		healthShield.update(dt);
 		weapon.update(dt);
+		gunViewModel.update(dt);
 
 		const playerDamage = enemySystem.update(dt, player.getPosition());
 
@@ -170,6 +182,7 @@ export async function initGameManager(
 
 		healthShield.reset();
 		weapon.reset();
+		gunViewModel.reset();
 		enemySystem.reset();
 
 		// Reset player position
@@ -196,6 +209,7 @@ export async function initGameManager(
 		document.removeEventListener('pointerlockchange', onPointerLockChange);
 		window.removeEventListener('resize', onResize);
 		player.dispose();
+		gunViewModel.dispose();
 		enemySystem.dispose();
 		vfxManager.dispose();
 		weapon.dispose();

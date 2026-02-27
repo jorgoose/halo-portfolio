@@ -24,8 +24,13 @@ export async function createGunViewModel(
 	root.parent = camera;
 	root.position = new B.Vector3(0.3, -0.3, 0.7);
 
-	// Load GLB model
-	const result = await SceneLoader.ImportMeshAsync('', '/shooter_ar.glb', '', scene);
+	// Load GLB model from R2
+	const result = await SceneLoader.ImportMeshAsync(
+		'',
+		'https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/',
+		'ar_model.glb',
+		scene
+	);
 
 	// Parent all loaded meshes under root, make non-pickable
 	const loadedRoot = new B.TransformNode('gunModelRoot', scene);

@@ -114,10 +114,43 @@ export async function initGameManager(
 		}
 	});
 
+	let debugCam: InstanceType<BabylonNamespace['FreeCamera']> | null = null;
+
 	scene.onKeyboardObservable.add((kbInfo) => {
 		if (kbInfo.type === B.KeyboardEventTypes.KEYDOWN) {
 			if (kbInfo.event.code === 'KeyR' && !gameOver) {
 				weapon.reload();
+			}
+			if (kbInfo.event.code === 'F3') {
+				kbInfo.event.preventDefault();
+				if (!debugCam) {
+					// Create debug freecam at current player position
+					const pos = player.camera.position.clone();
+					const rot = player.camera.rotation.clone();
+					debugCam = new B.FreeCamera('debugCam', pos, scene);
+					debugCam.rotation = rot;
+					debugCam.minZ = 0.01;
+					debugCam.speed = 0.5;
+					debugCam.keysUp = [87];
+					debugCam.keysDown = [83];
+					debugCam.keysLeft = [65];
+					debugCam.keysRight = [68];
+					debugCam.keysUpward = [69]; // E
+					debugCam.keysDownward = [81]; // Q
+					debugCam.angularSensibility = 3000;
+					scene.activeCamera = debugCam;
+					debugCam.attachControl(canvas, true);
+					player.camera.detachControl();
+					console.log('Debug freecam ON — WASD move, E/Q up/down, F3 to exit');
+				} else {
+					// Return to player camera
+					debugCam.detachControl();
+					debugCam.dispose();
+					debugCam = null;
+					scene.activeCamera = player.camera;
+					player.camera.attachControl(canvas, true);
+					console.log('Debug freecam OFF');
+				}
 			}
 		}
 	});

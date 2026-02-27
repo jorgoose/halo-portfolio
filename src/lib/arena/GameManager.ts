@@ -103,16 +103,14 @@ export async function initGameManager(
 	let disposed = false;
 
 	// --- Input ---
+	let firing = false;
+
 	scene.onPointerObservable.add((pointerInfo) => {
-		if (gameOver || paused) return;
-		if (pointerInfo.type === B.PointerEventTypes.POINTERDOWN) {
-			if (pointerInfo.event.button === 0) {
-				const result = weapon.fire();
-				if (result.hit && result.enemyMesh) {
-					const killed = enemySystem.damageEnemy(result.enemyMesh, WEAPON_DAMAGE);
-					if (killed) kills++;
-				}
-			}
+		if (pointerInfo.type === B.PointerEventTypes.POINTERDOWN && pointerInfo.event.button === 0) {
+			firing = true;
+		}
+		if (pointerInfo.type === B.PointerEventTypes.POINTERUP && pointerInfo.event.button === 0) {
+			firing = false;
 		}
 	});
 
@@ -142,6 +140,15 @@ export async function initGameManager(
 		healthShield.update(dt);
 		weapon.update(dt);
 		gunViewModel.update(dt);
+
+		// Full-auto: fire every frame while mouse held (cooldown gates rate)
+		if (firing) {
+			const result = weapon.fire();
+			if (result.hit && result.enemyMesh) {
+				const killed = enemySystem.damageEnemy(result.enemyMesh, WEAPON_DAMAGE);
+				if (killed) kills++;
+			}
+		}
 
 		const playerDamage = enemySystem.update(dt, player.getPosition());
 
@@ -178,6 +185,7 @@ export async function initGameManager(
 	function restart() {
 		gameOver = false;
 		paused = false;
+		firing = false;
 		kills = 0;
 
 		healthShield.reset();

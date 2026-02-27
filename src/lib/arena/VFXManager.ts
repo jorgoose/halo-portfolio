@@ -28,20 +28,36 @@ export function createVFXManager(
 	particleTex.update();
 
 	function muzzleFlash(pos: InstanceType<BabylonNamespace['Vector3']>, dir: InstanceType<BabylonNamespace['Vector3']>) {
-		const flash = B.MeshBuilder.CreateSphere('muzzleFlash', { diameter: 0.3, segments: 4 }, scene);
-		const flashOffset = dir.normalize().scale(0.5);
-		flash.position = pos.add(flashOffset).add(new B.Vector3(0, -0.2, 0));
-		flash.isPickable = false;
+		const fwd = dir.normalize();
 
-		const mat = new B.StandardMaterial('flashMat', scene);
-		mat.emissiveColor = new B.Color3(1.0, 0.85, 0.5);
-		mat.diffuseColor = new B.Color3(0, 0, 0);
-		mat.alpha = 0.9;
-		flash.material = mat;
+		// Particle burst emitting forward from barrel tip
+		const ps = new B.ParticleSystem('muzzleFlash', 15, scene);
+		ps.particleTexture = particleTex;
+		ps.emitter = pos.add(fwd.scale(0.1));
+
+		ps.minLifeTime = 0.02;
+		ps.maxLifeTime = 0.06;
+		ps.minSize = 0.04;
+		ps.maxSize = 0.12;
+		ps.emitRate = 600;
+		ps.minEmitPower = 4;
+		ps.maxEmitPower = 8;
+
+		// Spray in a tight cone along the firing direction
+		const spread = 0.3;
+		ps.direction1 = new B.Vector3(fwd.x - spread, fwd.y - spread, fwd.z - spread);
+		ps.direction2 = new B.Vector3(fwd.x + spread, fwd.y + spread, fwd.z + spread);
+
+		ps.color1 = new B.Color4(1.0, 0.9, 0.5, 1);
+		ps.color2 = new B.Color4(1.0, 0.6, 0.2, 0.8);
+		ps.colorDead = new B.Color4(1.0, 0.3, 0.0, 0);
+
+		ps.gravity = new B.Vector3(0, 0, 0);
+		ps.start();
 
 		setTimeout(() => {
-			flash.dispose();
-			mat.dispose();
+			ps.stop();
+			setTimeout(() => ps.dispose(), 100);
 		}, MUZZLE_FLASH_DURATION * 1000);
 	}
 

@@ -26,17 +26,17 @@ export const ENEMY_HEALTH = 100;
 export const ENEMY_DAMAGE = 10;
 export const ENEMY_FIRE_RATE = 1.0; // seconds between shots
 export const ENEMY_SPEED = 0.06;
-export const ENEMY_DETECT_RANGE = 20;
-export const ENEMY_ATTACK_RANGE = 15;
+export const ENEMY_DETECT_RANGE = 50;
+export const ENEMY_ATTACK_RANGE = 40;
 export const ENEMY_MELEE_RANGE = 3;
-export const MAX_ENEMIES = 4;
+export const MAX_ENEMIES = 6;
 export const ENEMY_RESPAWN_TIME = 5.0; // seconds
 
 // Arena
-export const ARENA_SIZE = 40;
-export const WALL_HEIGHT = 6;
-export const PLATFORM_HEIGHT = 2;
-export const COVER_HEIGHT = 1.2;
+export const ARENA_SIZE = 120;
+export const WALL_HEIGHT = 8;
+export const PLATFORM_HEIGHT = 2.5;
+export const COVER_HEIGHT = 1.4;
 
 // Colors (as RGB arrays for Babylon Color3)
 export const COLOR_AMBER = [1.0, 0.7, 0.2] as const; // warm Forerunner gold
@@ -49,7 +49,7 @@ export const COLOR_ENEMY_RED = [1.0, 0.2, 0.1] as const;
 export const COLOR_ORANGE = [1.0, 0.6, 0.1] as const;
 
 // Fog
-export const FOG_DENSITY = 0.015;
+export const FOG_DENSITY = 0.006;
 export const FOG_COLOR = [0.03, 0.03, 0.04] as const;
 
 // VFX

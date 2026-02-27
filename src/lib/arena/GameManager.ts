@@ -80,7 +80,7 @@ export async function initGameManager(
 	const centerLight = new B.PointLight('centerLight', new B.Vector3(0, 4, 0), scene);
 	centerLight.intensity = 0.5;
 	centerLight.diffuse = new B.Color3(1.0, 0.7, 0.2);
-	centerLight.range = 25;
+	centerLight.range = 60;
 
 	// --- Arena Map ---
 	const { spawnPoints } = createArenaMap(B, scene);

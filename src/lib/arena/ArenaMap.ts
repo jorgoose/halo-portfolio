@@ -115,38 +115,38 @@ export function createArenaMap(
 
 	// --- Corner Platforms with Stepped Base & Ramps ---
 	const corners: [number, number][] = [
-		[-half + 4, -half + 4],
-		[half - 4, -half + 4],
-		[-half + 4, half - 4],
-		[half - 4, half - 4]
+		[-half + 12, -half + 12],
+		[half - 12, -half + 12],
+		[-half + 12, half - 12],
+		[half - 12, half - 12]
 	];
 
 	corners.forEach(([cx, cz], i) => {
 		// Stepped base
-		const baseStep = B.MeshBuilder.CreateBox(`platBase_${i}`, { width: 7.5, height: PLATFORM_HEIGHT * 0.3, depth: 7.5 }, scene);
+		const baseStep = B.MeshBuilder.CreateBox(`platBase_${i}`, { width: 12, height: PLATFORM_HEIGHT * 0.3, depth: 12 }, scene);
 		baseStep.position.set(cx, (PLATFORM_HEIGHT * 0.3) / 2, cz);
 		baseStep.material = wallMat;
 		baseStep.checkCollisions = true;
 
 		// Platform top
-		const plat = B.MeshBuilder.CreateBox(`platform_${i}`, { width: 6, height: PLATFORM_HEIGHT, depth: 6 }, scene);
+		const plat = B.MeshBuilder.CreateBox(`platform_${i}`, { width: 10, height: PLATFORM_HEIGHT, depth: 10 }, scene);
 		plat.position.set(cx, PLATFORM_HEIGHT / 2, cz);
 		plat.material = platformMat;
 		plat.checkCollisions = true;
 
 		// Platform edge glow — amber
-		const edgeTrim = B.MeshBuilder.CreateBox(`platTrim_${i}`, { width: 6.2, height: 0.08, depth: 6.2 }, scene);
+		const edgeTrim = B.MeshBuilder.CreateBox(`platTrim_${i}`, { width: 10.2, height: 0.08, depth: 10.2 }, scene);
 		edgeTrim.position.set(cx, PLATFORM_HEIGHT, cz);
 		edgeTrim.material = amberGlow;
 		edgeTrim.isPickable = false;
 
 		// Ramp facing center
 		const rampDir = new B.Vector3(-Math.sign(cx), 0, -Math.sign(cz)).normalize();
-		const ramp = B.MeshBuilder.CreateBox(`ramp_${i}`, { width: 2.5, height: 0.15, depth: 4 }, scene);
-		const rampX = cx + rampDir.x * 4;
-		const rampZ = cz + rampDir.z * 4;
+		const ramp = B.MeshBuilder.CreateBox(`ramp_${i}`, { width: 4, height: 0.15, depth: 6 }, scene);
+		const rampX = cx + rampDir.x * 7;
+		const rampZ = cz + rampDir.z * 7;
 		ramp.position.set(rampX, PLATFORM_HEIGHT / 2, rampZ);
-		const angleDiag = Math.atan2(PLATFORM_HEIGHT, 4);
+		const angleDiag = Math.atan2(PLATFORM_HEIGHT, 6);
 		if (Math.abs(rampDir.x) > Math.abs(rampDir.z)) {
 			ramp.rotation.z = rampDir.x > 0 ? angleDiag : -angleDiag;
 		} else {
@@ -158,100 +158,104 @@ export function createArenaMap(
 
 	// --- Cover Blocks with Amber Accent Lines ---
 	const coverPositions: [number, number][] = [
-		[-6, -6],
-		[6, -6],
-		[-6, 6],
-		[6, 6]
+		[-18, -18],
+		[18, -18],
+		[-18, 18],
+		[18, 18]
 	];
 
 	coverPositions.forEach(([x, z], i) => {
-		const cover = B.MeshBuilder.CreateBox(`cover_${i}`, { width: 2.5, height: COVER_HEIGHT, depth: 2.5 }, scene);
+		const cover = B.MeshBuilder.CreateBox(`cover_${i}`, { width: 4, height: COVER_HEIGHT, depth: 4 }, scene);
 		cover.position.set(x, COVER_HEIGHT / 2, z);
 		cover.material = coverMat;
 		cover.checkCollisions = true;
 
 		// Amber accent strip on top
-		const strip = B.MeshBuilder.CreateBox(`coverStrip_${i}`, { width: 2.6, height: 0.06, depth: 0.15 }, scene);
+		const strip = B.MeshBuilder.CreateBox(`coverStrip_${i}`, { width: 4.1, height: 0.06, depth: 0.15 }, scene);
 		strip.position.set(x, COVER_HEIGHT, z);
 		strip.material = amberGlow;
 		strip.isPickable = false;
 
 		// Amber accent line on front face
-		const frontLine = B.MeshBuilder.CreateBox(`coverFront_${i}`, { width: 2.4, height: 0.04, depth: 0.02 }, scene);
-		frontLine.position.set(x, COVER_HEIGHT * 0.5, z + 1.26);
+		const frontLine = B.MeshBuilder.CreateBox(`coverFront_${i}`, { width: 3.8, height: 0.04, depth: 0.02 }, scene);
+		frontLine.position.set(x, COVER_HEIGHT * 0.5, z + 2.01);
 		frontLine.material = amberGlow;
 		frontLine.isPickable = false;
 
 		// Amber accent line on back face
-		const backLine = B.MeshBuilder.CreateBox(`coverBack_${i}`, { width: 2.4, height: 0.04, depth: 0.02 }, scene);
-		backLine.position.set(x, COVER_HEIGHT * 0.5, z - 1.26);
+		const backLine = B.MeshBuilder.CreateBox(`coverBack_${i}`, { width: 3.8, height: 0.04, depth: 0.02 }, scene);
+		backLine.position.set(x, COVER_HEIGHT * 0.5, z - 2.01);
 		backLine.material = amberGlow;
 		backLine.isPickable = false;
 	});
 
 	// --- Center Platform with Forerunner Pillar ---
-	const centerPlat = B.MeshBuilder.CreateBox('centerPlatform', { width: 5, height: 0.6, depth: 5 }, scene);
+	const centerPlat = B.MeshBuilder.CreateBox('centerPlatform', { width: 10, height: 0.6, depth: 10 }, scene);
 	centerPlat.position.set(0, 0.3, 0);
 	centerPlat.material = platformMat;
 	centerPlat.checkCollisions = true;
 
-	const centerPlatTrim = B.MeshBuilder.CreateBox('centerPlatTrim', { width: 5.2, height: 0.06, depth: 5.2 }, scene);
+	const centerPlatTrim = B.MeshBuilder.CreateBox('centerPlatTrim', { width: 10.2, height: 0.06, depth: 10.2 }, scene);
 	centerPlatTrim.position.set(0, 0.6, 0);
 	centerPlatTrim.material = amberGlow;
 	centerPlatTrim.isPickable = false;
 
 	// Center pillar — silver material
-	const pillar = B.MeshBuilder.CreateCylinder('pillar', { height: 4, diameter: 1, tessellation: 8 }, scene);
-	pillar.position.set(0, 2.6, 0);
+	const pillar = B.MeshBuilder.CreateCylinder('pillar', { height: 6, diameter: 1.5, tessellation: 8 }, scene);
+	pillar.position.set(0, 3.6, 0);
 	pillar.material = silverMat;
 	pillar.checkCollisions = true;
 
 	// Amber ring at top
-	const pillarRing = B.MeshBuilder.CreateTorus('pillarRing', { diameter: 1.5, thickness: 0.08, tessellation: 16 }, scene);
-	pillarRing.position.set(0, 4.6, 0);
+	const pillarRing = B.MeshBuilder.CreateTorus('pillarRing', { diameter: 2.2, thickness: 0.1, tessellation: 16 }, scene);
+	pillarRing.position.set(0, 6.6, 0);
 	pillarRing.material = amberGlow;
 	pillarRing.isPickable = false;
 
 	// 4 floating hard-light panels around pillar
 	const panelOffsets: [number, number][] = [
-		[2.2, 0],
-		[-2.2, 0],
-		[0, 2.2],
-		[0, -2.2]
+		[3.5, 0],
+		[-3.5, 0],
+		[0, 3.5],
+		[0, -3.5]
 	];
 	panelOffsets.forEach(([px, pz], i) => {
-		const panel = B.MeshBuilder.CreateBox(`hardLight_${i}`, { width: 1.2, height: 2.0, depth: 0.06 }, scene);
-		panel.position.set(px, 3.0, pz);
+		const panel = B.MeshBuilder.CreateBox(`hardLight_${i}`, { width: 1.5, height: 2.5, depth: 0.06 }, scene);
+		panel.position.set(px, 4.0, pz);
 		// Rotate panels to face the pillar
-		panel.lookAt(new B.Vector3(0, 3.0, 0));
+		panel.lookAt(new B.Vector3(0, 4.0, 0));
 		panel.material = hardLightMat;
 		panel.isPickable = false;
 	});
 
 	// Triangle glyph on pillar (decorative Forerunner symbol)
 	const glyphBar1 = B.MeshBuilder.CreateBox('glyph1', { width: 0.6, height: 0.04, depth: 0.04 }, scene);
-	glyphBar1.position.set(0, 3.4, 0.52);
+	glyphBar1.position.set(0, 4.8, 0.78);
 	glyphBar1.material = amberGlow;
 	glyphBar1.isPickable = false;
 
 	const glyphBar2 = B.MeshBuilder.CreateBox('glyph2', { width: 0.35, height: 0.04, depth: 0.04 }, scene);
-	glyphBar2.position.set(-0.15, 3.65, 0.52);
+	glyphBar2.position.set(-0.15, 5.05, 0.78);
 	glyphBar2.rotation.z = Math.PI / 3;
 	glyphBar2.material = amberGlow;
 	glyphBar2.isPickable = false;
 
 	const glyphBar3 = B.MeshBuilder.CreateBox('glyph3', { width: 0.35, height: 0.04, depth: 0.04 }, scene);
-	glyphBar3.position.set(0.15, 3.65, 0.52);
+	glyphBar3.position.set(0.15, 5.05, 0.78);
 	glyphBar3.rotation.z = -Math.PI / 3;
 	glyphBar3.material = amberGlow;
 	glyphBar3.isPickable = false;
 
 	// --- Additional cover along sides ---
 	const sideCovers: [number, number, number, number][] = [
-		[0, -10, 3, 1.5],
-		[0, 10, 3, 1.5],
-		[-10, 0, 1.5, 3],
-		[10, 0, 1.5, 3]
+		[0, -30, 4, 2],
+		[0, 30, 4, 2],
+		[-30, 0, 2, 4],
+		[30, 0, 2, 4],
+		[-20, -30, 3, 2],
+		[20, 30, 3, 2],
+		[-30, 20, 2, 3],
+		[30, -20, 2, 3]
 	];
 
 	sideCovers.forEach(([x, z, w, d], i) => {
@@ -264,24 +268,30 @@ export function createArenaMap(
 	// --- Spawn & Nav Points ---
 	const spawnPoints = {
 		player: [
-			{ x: -half + 3, y: 2.4, z: -half + 3 },
-			{ x: half - 3, y: 2.4, z: half - 3 }
+			{ x: -half + 8, y: 2.4, z: -half + 8 },
+			{ x: half - 8, y: 2.4, z: half - 8 }
 		],
 		enemy: [
-			{ x: half - 5, y: 0.5, z: -half + 5 },
-			{ x: -half + 5, y: 0.5, z: half - 5 },
-			{ x: half - 5, y: 0.5, z: half - 5 },
-			{ x: -half + 5, y: 0.5, z: -half + 5 }
+			{ x: half - 15, y: 0.5, z: -half + 15 },
+			{ x: -half + 15, y: 0.5, z: half - 15 },
+			{ x: half - 15, y: 0.5, z: half - 15 },
+			{ x: -half + 15, y: 0.5, z: -half + 15 },
+			{ x: 0, y: 0.5, z: half - 15 },
+			{ x: 0, y: 0.5, z: -half + 15 }
 		],
 		nav: [
-			{ x: -8, y: 0.5, z: -8 },
-			{ x: 8, y: 0.5, z: -8 },
-			{ x: 8, y: 0.5, z: 8 },
-			{ x: -8, y: 0.5, z: 8 },
-			{ x: 0, y: 0.5, z: -12 },
-			{ x: 12, y: 0.5, z: 0 },
-			{ x: 0, y: 0.5, z: 12 },
-			{ x: -12, y: 0.5, z: 0 }
+			{ x: -25, y: 0.5, z: -25 },
+			{ x: 25, y: 0.5, z: -25 },
+			{ x: 25, y: 0.5, z: 25 },
+			{ x: -25, y: 0.5, z: 25 },
+			{ x: 0, y: 0.5, z: -35 },
+			{ x: 35, y: 0.5, z: 0 },
+			{ x: 0, y: 0.5, z: 35 },
+			{ x: -35, y: 0.5, z: 0 },
+			{ x: -15, y: 0.5, z: 0 },
+			{ x: 15, y: 0.5, z: 0 },
+			{ x: 0, y: 0.5, z: -15 },
+			{ x: 0, y: 0.5, z: 15 }
 		]
 	};
 

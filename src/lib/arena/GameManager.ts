@@ -92,7 +92,7 @@ export async function initGameManager(
 	// --- Systems ---
 	let healthShield: HealthShieldSystem = createHealthShieldSystem();
 	const vfxManager: VFXManager = createVFXManager(B, scene);
-	let gunViewModel: GunViewModel = createGunViewModel(B, scene, player.camera);
+	let gunViewModel: GunViewModel = await createGunViewModel(B, scene, player.camera);
 	let weapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, gunViewModel);
 	let enemySystem: EnemySystem = createEnemySystem(B, scene, spawnPoints, vfxManager);
 	const hud = createHudState(hudCallback);

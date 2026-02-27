@@ -1,5 +1,4 @@
 import type { BabylonNamespace } from './types';
-import { COLOR_FORERUNNER_SILVER, COLOR_AMBER } from './constants';
 
 export interface GunViewModel {
 	barrelTip: InstanceType<BabylonNamespace['Vector3']>;
@@ -10,101 +9,44 @@ export interface GunViewModel {
 	dispose: () => void;
 }
 
-export function createGunViewModel(
+export async function createGunViewModel(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>,
 	camera: InstanceType<BabylonNamespace['FreeCamera']>
-): GunViewModel {
+): Promise<GunViewModel> {
+	// Register GLTF loader plugin
+	await import('@babylonjs/loaders/glTF');
+
+	const { SceneLoader } = await import('@babylonjs/core');
+
 	// Root node parented to camera
 	const root = new B.TransformNode('gunRoot', scene);
 	root.parent = camera;
 	root.position = new B.Vector3(0.3, -0.3, 0.7);
 
-	// --- Materials ---
-	const silverGunMat = new B.StandardMaterial('gunSilverMat', scene);
-	silverGunMat.diffuseColor = new B.Color3(...COLOR_FORERUNNER_SILVER);
-	silverGunMat.specularColor = new B.Color3(0.5, 0.5, 0.48);
-	silverGunMat.emissiveColor = new B.Color3(0.04, 0.04, 0.04);
+	// Load GLB model
+	const result = await SceneLoader.ImportMeshAsync('', '/shooter_ar.glb', '', scene);
 
-	const darkGripMat = new B.StandardMaterial('gunGripMat', scene);
-	darkGripMat.diffuseColor = new B.Color3(0.08, 0.08, 0.09);
-	darkGripMat.specularColor = new B.Color3(0.05, 0.05, 0.05);
+	// Parent all loaded meshes under root, make non-pickable
+	const loadedRoot = new B.TransformNode('gunModelRoot', scene);
+	loadedRoot.parent = root;
+	// Scale and position adjustments — will likely need tuning
+	loadedRoot.scaling = new B.Vector3(0.15, 0.15, 0.15);
+	loadedRoot.rotation = new B.Vector3(0, Math.PI, 0); // face forward
 
-	const amberAccentMat = new B.StandardMaterial('gunAmberMat', scene);
-	amberAccentMat.emissiveColor = new B.Color3(...COLOR_AMBER);
-	amberAccentMat.diffuseColor = new B.Color3(0, 0, 0);
+	for (const mesh of result.meshes) {
+		if (!mesh.parent) {
+			mesh.parent = loadedRoot;
+		}
+		mesh.isPickable = false;
+	}
 
-	// --- Gun Parts ---
-	// Main body
-	const body = B.MeshBuilder.CreateBox('gunBody', { width: 0.08, height: 0.06, depth: 0.35 }, scene);
-	body.parent = root;
-	body.position = new B.Vector3(0, 0, 0);
-	body.material = silverGunMat;
-	body.isPickable = false;
-
-	// Barrel
-	const barrel = B.MeshBuilder.CreateCylinder('gunBarrel', { height: 0.3, diameter: 0.03, tessellation: 8 }, scene);
-	barrel.parent = root;
-	barrel.rotation.x = Math.PI / 2;
-	barrel.position = new B.Vector3(0, 0.01, 0.32);
-	barrel.material = silverGunMat;
-	barrel.isPickable = false;
-
-	// Barrel shroud
-	const shroud = B.MeshBuilder.CreateCylinder('gunShroud', { height: 0.2, diameter: 0.05, tessellation: 8 }, scene);
-	shroud.parent = root;
-	shroud.rotation.x = Math.PI / 2;
-	shroud.position = new B.Vector3(0, 0.01, 0.28);
-	shroud.material = silverGunMat;
-	shroud.isPickable = false;
-
-	// Stock
-	const stock = B.MeshBuilder.CreateBox('gunStock', { width: 0.06, height: 0.05, depth: 0.12 }, scene);
-	stock.parent = root;
-	stock.position = new B.Vector3(0, -0.01, -0.2);
-	stock.material = darkGripMat;
-	stock.isPickable = false;
-
-	// Grip
-	const grip = B.MeshBuilder.CreateBox('gunGrip', { width: 0.04, height: 0.1, depth: 0.05 }, scene);
-	grip.parent = root;
-	grip.position = new B.Vector3(0, -0.07, -0.05);
-	grip.rotation.x = 0.2;
-	grip.material = darkGripMat;
-	grip.isPickable = false;
-
-	// Magazine
-	const mag = B.MeshBuilder.CreateBox('gunMag', { width: 0.04, height: 0.08, depth: 0.04 }, scene);
-	mag.parent = root;
-	mag.position = new B.Vector3(0, -0.07, 0.06);
-	mag.material = darkGripMat;
-	mag.isPickable = false;
-
-	// Scope rail
-	const rail = B.MeshBuilder.CreateBox('gunRail', { width: 0.03, height: 0.015, depth: 0.15 }, scene);
-	rail.parent = root;
-	rail.position = new B.Vector3(0, 0.04, 0.05);
-	rail.material = silverGunMat;
-	rail.isPickable = false;
-
-	// Amber accent strips
-	const bodyStrip = B.MeshBuilder.CreateBox('gunAccent1', { width: 0.085, height: 0.008, depth: 0.32 }, scene);
-	bodyStrip.parent = root;
-	bodyStrip.position = new B.Vector3(0, 0.032, 0.01);
-	bodyStrip.material = amberAccentMat;
-	bodyStrip.isPickable = false;
-
-	const barrelStrip = B.MeshBuilder.CreateBox('gunAccent2', { width: 0.008, height: 0.008, depth: 0.25 }, scene);
-	barrelStrip.parent = root;
-	barrelStrip.position = new B.Vector3(0.022, 0.01, 0.3);
-	barrelStrip.material = amberAccentMat;
-	barrelStrip.isPickable = false;
-
-	// Barrel tip reference point (local space)
+	// Barrel tip reference point (local space relative to root)
+	// Adjusted for the model — tip of barrel in front
 	const barrelTipLocal = new B.Vector3(0, 0.01, 0.47);
 
 	// --- Animation State ---
-	let recoilTime = -1; // negative = not animating
+	let recoilTime = -1;
 	let reloadTime = -1;
 	let idlePhase = 0;
 
@@ -132,12 +74,10 @@ export function createGunViewModel(
 		if (recoilTime >= 0) {
 			recoilTime += dt;
 			if (recoilTime < 0.04) {
-				// Kick phase
 				const t = recoilTime / 0.04;
 				offsetZ = -0.06 * t;
 				rotX = -0.08 * t;
 			} else if (recoilTime < 0.16) {
-				// Return phase
 				const t = (recoilTime - 0.04) / 0.12;
 				offsetZ = -0.06 * (1 - t);
 				rotX = -0.08 * (1 - t);
@@ -152,13 +92,12 @@ export function createGunViewModel(
 			const reloadDur = 1.2;
 			if (reloadTime < reloadDur) {
 				const t = reloadTime / reloadDur;
-				// Down and back in first half, up in second half
 				const dip = t < 0.5 ? t * 2 : (1 - t) * 2;
 				root.position.y = restPos.y - 0.15 * dip + bobY;
 				root.position.x = restPos.x + bobX;
 				root.position.z = restPos.z + offsetZ;
 				root.rotation.x = rotX + 0.3 * dip;
-				return; // skip normal position update
+				return;
 			} else {
 				reloadTime = -1;
 			}
@@ -171,7 +110,6 @@ export function createGunViewModel(
 	}
 
 	function getBarrelTip(): InstanceType<BabylonNamespace['Vector3']> {
-		// Transform barrel tip from local gun space to world space
 		const worldMatrix = root.getWorldMatrix();
 		return B.Vector3.TransformCoordinates(barrelTipLocal, worldMatrix);
 	}
@@ -186,9 +124,6 @@ export function createGunViewModel(
 
 	function dispose() {
 		root.dispose(false, true);
-		silverGunMat.dispose();
-		darkGripMat.dispose();
-		amberAccentMat.dispose();
 	}
 
 	return {

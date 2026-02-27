@@ -36,7 +36,7 @@ export async function createGunViewModel(
 	const loadedRoot = new B.TransformNode('gunModelRoot', scene);
 	loadedRoot.parent = root;
 	// Scale and position adjustments
-	loadedRoot.scaling = new B.Vector3(1.5, 1.5, 1.5);
+	loadedRoot.scaling = new B.Vector3(1, 1, 1);
 	loadedRoot.rotation = new B.Vector3(0, Math.PI, 0); // face forward
 
 	for (const mesh of result.meshes) {

@@ -70,7 +70,7 @@ export async function createGunViewModel(
 	const halfGrowth = (ammoScreenHeight - 0.022) / 2;
 	ammoPlane.position = new B.Vector3(
 		0.0,
-		0.325 - halfGrowth * Math.cos(ammoScreenAngle),
+		0.425 - halfGrowth * Math.cos(ammoScreenAngle),
 		-0.18 + halfGrowth * Math.sin(ammoScreenAngle)
 	);
 	ammoPlane.rotation = new B.Vector3(ammoScreenAngle, 0, 0);

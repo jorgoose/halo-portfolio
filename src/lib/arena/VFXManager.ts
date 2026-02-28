@@ -210,6 +210,8 @@ export function createVFXManager(
 		flashFramesLeft = 0;
 		flashCoreMat.alpha = 0;
 		flashPetalMat.alpha = 0;
+		flashRoot.position.set(0, -9999, 0);
+		flashRoot.rotation.set(0, 0, 0);
 		setFlashEnabled(false);
 		if (flashHideTimer) {
 			clearTimeout(flashHideTimer);

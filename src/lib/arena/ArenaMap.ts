@@ -211,39 +211,67 @@ export function createArenaMap(
 	const half = ARENA_SIZE / 2;
 	const cliffHeight = 30;
 
-	// East/West cliff walls
+	// East/West cliff walls (visual only — collision handled by boundary walls below)
 	for (let i = 0; i < 6; i++) {
 		const zPos = -half + 20 + i * (ARENA_SIZE - 40) / 5;
 
 		const eastCliff = B.MeshBuilder.CreateBox(`cliffE_${i}`, { width: 4, height: cliffHeight, depth: 35 }, scene);
 		eastCliff.position.set(half - 2, cliffHeight / 2, zPos);
 		eastCliff.material = cliffMat;
-		eastCliff.checkCollisions = true;
+		eastCliff.checkCollisions = false;
 		eastCliff.isPickable = false;
 
 		const westCliff = B.MeshBuilder.CreateBox(`cliffW_${i}`, { width: 4, height: cliffHeight, depth: 35 }, scene);
 		westCliff.position.set(-half + 2, cliffHeight / 2, zPos);
 		westCliff.material = cliffMat;
-		westCliff.checkCollisions = true;
+		westCliff.checkCollisions = false;
 		westCliff.isPickable = false;
 	}
 
-	// North/South cliff walls (behind each base)
+	// North/South cliff walls (visual only)
 	for (let i = 0; i < 6; i++) {
 		const xPos = -half + 20 + i * (ARENA_SIZE - 40) / 5;
 
 		const northCliff = B.MeshBuilder.CreateBox(`cliffN_${i}`, { width: 35, height: cliffHeight, depth: 4 }, scene);
 		northCliff.position.set(xPos, cliffHeight / 2, -half + 2);
 		northCliff.material = cliffMat;
-		northCliff.checkCollisions = true;
+		northCliff.checkCollisions = false;
 		northCliff.isPickable = false;
 
 		const southCliff = B.MeshBuilder.CreateBox(`cliffS_${i}`, { width: 35, height: cliffHeight, depth: 4 }, scene);
 		southCliff.position.set(xPos, cliffHeight / 2, half - 2);
 		southCliff.material = cliffMat;
-		southCliff.checkCollisions = true;
+		southCliff.checkCollisions = false;
 		southCliff.isPickable = false;
 	}
+
+	// 4 invisible boundary walls replace 24 cliff collision meshes
+	const wallThickness = 2;
+	const wallHeight = cliffHeight;
+
+	const eastWall = B.MeshBuilder.CreateBox('boundaryE', { width: wallThickness, height: wallHeight, depth: ARENA_SIZE }, scene);
+	eastWall.position.set(half - 1, wallHeight / 2, 0);
+	eastWall.checkCollisions = true;
+	eastWall.isVisible = false;
+	eastWall.isPickable = false;
+
+	const westWall = B.MeshBuilder.CreateBox('boundaryW', { width: wallThickness, height: wallHeight, depth: ARENA_SIZE }, scene);
+	westWall.position.set(-half + 1, wallHeight / 2, 0);
+	westWall.checkCollisions = true;
+	westWall.isVisible = false;
+	westWall.isPickable = false;
+
+	const northWall = B.MeshBuilder.CreateBox('boundaryN', { width: ARENA_SIZE, height: wallHeight, depth: wallThickness }, scene);
+	northWall.position.set(0, wallHeight / 2, -half + 1);
+	northWall.checkCollisions = true;
+	northWall.isVisible = false;
+	northWall.isPickable = false;
+
+	const southWall = B.MeshBuilder.CreateBox('boundaryS', { width: ARENA_SIZE, height: wallHeight, depth: wallThickness }, scene);
+	southWall.position.set(0, wallHeight / 2, half - 1);
+	southWall.checkCollisions = true;
+	southWall.isVisible = false;
+	southWall.isPickable = false;
 
 	// --- 2H: Decorative Stream ---
 	const stream = B.MeshBuilder.CreateGround('stream', { width: 3, height: 120 }, scene);

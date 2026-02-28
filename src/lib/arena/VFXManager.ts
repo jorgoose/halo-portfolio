@@ -15,6 +15,17 @@ export function createVFXManager(
 	scene: InstanceType<BabylonNamespace['Scene']>
 ): VFXManager {
 	const pendingDisposals: (() => void)[] = [];
+	const activeTimers = new Set<ReturnType<typeof setTimeout>>();
+	const activeParticles = new Set<InstanceType<BabylonNamespace['ParticleSystem']>>();
+
+	/** Schedule a timeout that is automatically tracked for cleanup. */
+	function tracked(fn: () => void, ms: number) {
+		const id = setTimeout(() => {
+			activeTimers.delete(id);
+			fn();
+		}, ms);
+		activeTimers.add(id);
+	}
 
 	// Create a shared procedural particle texture
 	const particleTex = new B.DynamicTexture('particleTex', 64, scene, false);
@@ -62,17 +73,21 @@ export function createVFXManager(
 		// Animate: scale down and fade over ~60ms
 		let elapsed = 0;
 		const duration = MUZZLE_FLASH_DURATION + 0.02;
+		const cleanup = () => {
+			scene.unregisterBeforeRender(tick);
+			flash.dispose();
+			const idx = pendingDisposals.indexOf(cleanup);
+			if (idx !== -1) pendingDisposals.splice(idx, 1);
+		};
 		const tick = () => {
 			elapsed += scene.getEngine().getDeltaTime() / 1000;
 			const t = Math.min(elapsed / duration, 1);
 			const scale = 1.0 + 0.5 * (1 - t); // start 1.5x, shrink to 1x
 			flash.scaling.setAll(scale * (1 - t * 0.6));
-			if (t >= 1) {
-				scene.unregisterBeforeRender(tick);
-				flash.dispose();
-			}
+			if (t >= 1) cleanup();
 		};
 		scene.registerBeforeRender(tick);
+		pendingDisposals.push(cleanup);
 	}
 
 	function impactSpark(pos: InstanceType<BabylonNamespace['Vector3']>) {
@@ -97,10 +112,14 @@ export function createVFXManager(
 
 		ps.gravity = new B.Vector3(0, -5, 0);
 		ps.start();
+		activeParticles.add(ps);
 
-		setTimeout(() => {
+		tracked(() => {
 			ps.stop();
-			setTimeout(() => ps.dispose(), 300);
+			tracked(() => {
+				ps.dispose();
+				activeParticles.delete(ps);
+			}, 300);
 		}, 80);
 	}
 
@@ -117,17 +136,21 @@ export function createVFXManager(
 		flare.material = mat;
 
 		let elapsed = 0;
+		const cleanup = () => {
+			scene.unregisterBeforeRender(tick);
+			flare.dispose();
+			mat.dispose();
+			const idx = pendingDisposals.indexOf(cleanup);
+			if (idx !== -1) pendingDisposals.splice(idx, 1);
+		};
 		const tick = () => {
 			elapsed += scene.getEngine().getDeltaTime() / 1000;
 			flare.position = camera.position.clone();
 			mat.alpha = 0.25 * (1 - elapsed / 0.3);
-			if (elapsed > 0.3) {
-				scene.unregisterBeforeRender(tick);
-				flare.dispose();
-				mat.dispose();
-			}
+			if (elapsed > 0.3) cleanup();
 		};
 		scene.registerBeforeRender(tick);
+		pendingDisposals.push(cleanup);
 	}
 
 	function damageFlash(mesh: InstanceType<BabylonNamespace['Mesh']>) {
@@ -137,7 +160,7 @@ export function createVFXManager(
 		const origEmissive = mat.emissiveColor.clone();
 		mat.emissiveColor = new B.Color3(...COLOR_ENEMY_RED);
 
-		setTimeout(() => {
+		tracked(() => {
 			if (!mesh.isDisposed()) {
 				mat.emissiveColor = origEmissive;
 			}
@@ -166,16 +189,36 @@ export function createVFXManager(
 
 		ps.gravity = new B.Vector3(0, -4, 0);
 		ps.start();
+		activeParticles.add(ps);
 
-		setTimeout(() => {
+		tracked(() => {
 			ps.stop();
-			setTimeout(() => ps.dispose(), 1000);
+			tracked(() => {
+				ps.dispose();
+				activeParticles.delete(ps);
+			}, 1000);
 		}, 200);
 	}
 
 	function dispose() {
-		particleTex.dispose();
+		// Unregister orphan render callbacks and dispose their meshes
 		pendingDisposals.forEach((fn) => fn());
+		pendingDisposals.length = 0;
+
+		// Clear all tracked timers
+		activeTimers.forEach((id) => clearTimeout(id));
+		activeTimers.clear();
+
+		// Stop and dispose all live particle systems
+		activeParticles.forEach((ps) => {
+			ps.stop();
+			ps.dispose();
+		});
+		activeParticles.clear();
+
+		particleTex.dispose();
+		flashTex.dispose();
+		flashMat.dispose();
 	}
 
 	return { muzzleFlash, impactSpark, shieldFlare, damageFlash, deathEffect, dispose };

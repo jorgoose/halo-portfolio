@@ -52,9 +52,9 @@ export function createWeaponSystem(
 		gun.fireRecoil();
 		vfx.muzzleFlash(gun.barrelTip, ray.direction.clone());
 
-		// Raycast
+		// Single raycast — pick closest pickable mesh (enemies, walls, rocks)
 		const pick = scene.pickWithRay(ray, (mesh) => {
-			return mesh.isPickable && mesh.metadata?.shootable === true;
+			return mesh.isPickable && mesh.name !== 'playerCam';
 		});
 
 		if (pick?.hit && pick.pickedPoint) {
@@ -63,16 +63,12 @@ export function createWeaponSystem(
 			if (pick.pickedMesh?.metadata?.enemy) {
 				hitMarkerActive = true;
 				hitMarkerTimer = HIT_MARKER_DURATION;
+
+				if (ammo <= 0 && reserveAmmo > 0) {
+					reload();
+				}
 				return { hit: true, enemyMesh: pick.pickedMesh };
 			}
-		}
-
-		// Impact on non-enemy geometry
-		const wallPick = scene.pickWithRay(ray, (mesh) => {
-			return mesh.isPickable && mesh.name !== 'playerCam';
-		});
-		if (wallPick?.hit && wallPick.pickedPoint && !wallPick.pickedMesh?.metadata?.enemy) {
-			vfx.impactSpark(wallPick.pickedPoint);
 		}
 
 		if (ammo <= 0 && reserveAmmo > 0) {

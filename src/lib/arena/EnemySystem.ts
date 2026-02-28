@@ -30,6 +30,15 @@ export function createEnemySystem(
 	vfx: VFXManager
 ): EnemySystem {
 	const enemies: EnemyData[] = [];
+	const enemyMap = new Map<number, EnemyData>();
+
+	// Scratch vectors — reused every frame to avoid per-tick allocations
+	const _toPlayer = new B.Vector3();
+	const _navPos = new B.Vector3();
+	const _toNav = new B.Vector3();
+	const _lookAt = new B.Vector3();
+	const _shootOrigin = new B.Vector3();
+	const _moveDir = new B.Vector3();
 
 	// --- Materials ---
 	const bodyMat = new B.StandardMaterial('enemyBodyMat', scene);
@@ -112,6 +121,7 @@ export function createEnemySystem(
 		};
 
 		enemies.push(enemy);
+		enemyMap.set(index, enemy);
 	}
 
 	// Initial spawn
@@ -132,8 +142,8 @@ export function createEnemySystem(
 			}
 
 			const enemyPos = enemy.mesh.position;
-			const toPlayer = playerPos.subtract(enemyPos);
-			const distToPlayer = toPlayer.length();
+			playerPos.subtractToRef(enemyPos, _toPlayer);
+			const distToPlayer = _toPlayer.length();
 
 			enemy.stateTimer += dt;
 			enemy.attackCooldown -= dt;
@@ -151,16 +161,19 @@ export function createEnemySystem(
 
 				case EnemyState.PATROL: {
 					const navTarget = spawnPoints.nav[enemy.currentNavIndex];
-					const navPos = new B.Vector3(navTarget.x, navTarget.y, navTarget.z);
-					const toNav = navPos.subtract(enemyPos);
+					_navPos.set(navTarget.x, navTarget.y, navTarget.z);
+					_navPos.subtractToRef(enemyPos, _toNav);
 
-					if (toNav.length() < 1.5) {
+					if (_toNav.length() < 1.5) {
 						enemy.currentNavIndex = (enemy.currentNavIndex + 1) % spawnPoints.nav.length;
 					} else {
-						const moveDir = toNav.normalize().scale(ENEMY_SPEED);
-						enemy.mesh.position.addInPlace(moveDir);
+						_toNav.normalizeToRef(_moveDir);
+						_moveDir.scaleInPlace(ENEMY_SPEED);
+						enemy.mesh.position.addInPlace(_moveDir);
 						// Face movement direction
-						enemy.mesh.lookAt(enemyPos.add(toNav));
+						_lookAt.copyFrom(enemyPos);
+						_lookAt.addInPlace(_toNav);
+						enemy.mesh.lookAt(_lookAt);
 					}
 
 					if (distToPlayer < ENEMY_DETECT_RANGE) {
@@ -183,9 +196,11 @@ export function createEnemySystem(
 						break;
 					}
 
-					const moveDir = toPlayer.normalize().scale(ENEMY_SPEED);
-					enemy.mesh.position.addInPlace(moveDir);
-					enemy.mesh.lookAt(new B.Vector3(playerPos.x, enemyPos.y, playerPos.z));
+					_toPlayer.normalizeToRef(_moveDir);
+					_moveDir.scaleInPlace(ENEMY_SPEED);
+					enemy.mesh.position.addInPlace(_moveDir);
+					_lookAt.set(playerPos.x, enemyPos.y, playerPos.z);
+					enemy.mesh.lookAt(_lookAt);
 					break;
 				}
 
@@ -197,16 +212,18 @@ export function createEnemySystem(
 					}
 
 					// Face player
-					enemy.mesh.lookAt(new B.Vector3(playerPos.x, enemyPos.y, playerPos.z));
+					_lookAt.set(playerPos.x, enemyPos.y, playerPos.z);
+					enemy.mesh.lookAt(_lookAt);
 
 					// Shoot at player
 					if (enemy.attackCooldown <= 0) {
 						enemy.attackCooldown = ENEMY_FIRE_RATE;
 
 						// Raycast from enemy to player to check for cover
-						const shootOrigin = enemyPos.add(new B.Vector3(0, 0.8, 0));
-						const shootDir = playerPos.subtract(shootOrigin).normalize();
-						const ray = new B.Ray(shootOrigin, shootDir, ENEMY_ATTACK_RANGE + 5);
+						_shootOrigin.copyFrom(enemyPos);
+						_shootOrigin.y += 0.8;
+						const shootDir = playerPos.subtract(_shootOrigin).normalize();
+						const ray = new B.Ray(_shootOrigin, shootDir, ENEMY_ATTACK_RANGE + 5);
 
 						const pick = scene.pickWithRay(ray, (mesh) => {
 							return mesh.isPickable && !mesh.metadata?.enemy && mesh.name !== 'floor';
@@ -232,7 +249,7 @@ export function createEnemySystem(
 		const index = mesh.metadata?.enemyIndex;
 		if (index === undefined) return false;
 
-		const enemy = enemies.find((e) => e.spawnIndex === index);
+		const enemy = enemyMap.get(index);
 		if (!enemy || enemy.state === EnemyState.DEAD) return false;
 
 		enemy.health -= amount;
@@ -288,6 +305,7 @@ export function createEnemySystem(
 			enemy.mesh.dispose(false, true);
 		});
 		enemies.length = 0;
+		enemyMap.clear();
 		bodyMat.dispose();
 		visorMat.dispose();
 	}

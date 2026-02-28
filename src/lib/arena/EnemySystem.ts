@@ -23,12 +23,18 @@ export interface EnemySystem {
 	dispose: () => void;
 }
 
+interface EnemySystemOptions {
+	lowQuality?: boolean;
+}
+
 export function createEnemySystem(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>,
 	spawnPoints: SpawnPoints,
-	vfx: VFXManager
+	vfx: VFXManager,
+	options: EnemySystemOptions = {}
 ): EnemySystem {
+	const lowQuality = options.lowQuality ?? false;
 	const enemies: EnemyData[] = [];
 	const enemyMap = new Map<number, EnemyData>();
 
@@ -52,6 +58,19 @@ export function createEnemySystem(
 	visorMat.diffuseColor = new B.Color3(0, 0, 0);
 
 	function buildEnemyMesh(index: number): { mesh: InstanceType<BabylonNamespace['Mesh']>; headMesh: InstanceType<BabylonNamespace['Mesh']> } {
+		if (lowQuality) {
+			const body = B.MeshBuilder.CreateBox(
+				`enemyBody_${index}`,
+				{ width: 0.65, height: 1.4, depth: 0.45 },
+				scene
+			);
+			body.material = bodyMat;
+			body.metadata = { shootable: true, enemy: true, enemyIndex: index };
+			body.checkCollisions = false;
+			body.isPickable = true;
+			return { mesh: body as InstanceType<BabylonNamespace['Mesh']>, headMesh: body as InstanceType<BabylonNamespace['Mesh']> };
+		}
+
 		// Body (box)
 		const body = B.MeshBuilder.CreateBox(`enemyBody_${index}`, { width: 0.6, height: 1.2, depth: 0.4 }, scene);
 		body.material = bodyMat;
@@ -126,8 +145,10 @@ export function createEnemySystem(
 		enemyMap.set(index, enemy);
 	}
 
+	const activeEnemyCount = lowQuality ? Math.max(3, Math.ceil(MAX_ENEMIES * 0.66)) : MAX_ENEMIES;
+
 	// Initial spawn
-	for (let i = 0; i < MAX_ENEMIES; i++) {
+	for (let i = 0; i < activeEnemyCount; i++) {
 		spawnEnemy(i);
 	}
 

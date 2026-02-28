@@ -60,7 +60,9 @@ export async function initGameManager(
 		typeof window !== 'undefined' &&
 		typeof window.matchMedia === 'function' &&
 		window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	const lowQualityMode = prefersReducedMotion || hardwareThreads <= 4 || deviceMemoryGb <= 4;
+	const qualityParam =
+		typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('quality') : null;
+	let lowQualityMode = prefersReducedMotion || (hardwareThreads <= 8 && deviceMemoryGb <= 8);
 
 	// --- Engine & Scene ---
 	const engine = new B.Engine(canvas, false, { stencil: true });
@@ -68,15 +70,34 @@ export async function initGameManager(
 	scene.clearColor = new B.Color4(...FOG_COLOR, 1);
 	scene.skipPointerMovePicking = true;
 
+	const glInfo = engine.getGlInfo();
+	const rendererText = `${glInfo.renderer ?? ''} ${glInfo.vendor ?? ''}`.toLowerCase();
+	const integratedRenderer =
+		/(intel|iris|uhd|vega|swiftshader|llvmpipe|microsoft basic render|mesa)/.test(rendererText) &&
+		!/(nvidia|geforce|rtx|radeon rx|arc)/.test(rendererText);
+	if (qualityParam === 'high') {
+		lowQualityMode = false;
+	} else if (qualityParam === 'low') {
+		lowQualityMode = true;
+	} else if (integratedRenderer) {
+		lowQualityMode = true;
+	}
+
 	if (lowQualityMode) {
 		// Render at a lower internal resolution on low-power devices.
-		engine.setHardwareScalingLevel(1.6);
+		const scale = hardwareThreads <= 4 || deviceMemoryGb <= 4 ? 2.2 : 1.8;
+		engine.setHardwareScalingLevel(scale);
+		scene.performancePriority = BABYLON.ScenePerformancePriority.Aggressive;
 	}
 
 	// Fog
-	scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-	scene.fogDensity = FOG_DENSITY;
-	scene.fogColor = new B.Color3(...FOG_COLOR);
+	if (lowQualityMode) {
+		scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
+	} else {
+		scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+		scene.fogDensity = FOG_DENSITY;
+		scene.fogColor = new B.Color3(...FOG_COLOR);
+	}
 
 	// Glow layer is expensive on integrated graphics, so skip in low quality mode.
 	const glowLayer = lowQualityMode
@@ -112,9 +133,13 @@ export async function initGameManager(
 	// --- Systems ---
 	let healthShield: HealthShieldSystem = createHealthShieldSystem();
 	const vfxManager: VFXManager = createVFXManager(B, scene, { lowQuality: lowQualityMode });
-	let gunViewModel: GunViewModel = await createGunViewModel(B, scene, player.camera);
+	let gunViewModel: GunViewModel = await createGunViewModel(B, scene, player.camera, {
+		lowQuality: lowQualityMode
+	});
 	let weapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, gunViewModel);
-	let enemySystem: EnemySystem = createEnemySystem(B, scene, spawnPoints, vfxManager);
+	let enemySystem: EnemySystem = createEnemySystem(B, scene, spawnPoints, vfxManager, {
+		lowQuality: lowQualityMode
+	});
 	const hud = createHudState(hudCallback);
 
 	let kills = 0;
@@ -233,7 +258,7 @@ export async function initGameManager(
 
 	// --- Render Loop ---
 	let lastFrameAt = performance.now();
-	const minFrameIntervalMs = lowQualityMode ? 1000 / 45 : 0;
+	const minFrameIntervalMs = lowQualityMode ? 1000 / 40 : 0;
 	engine.runRenderLoop(() => {
 		if (minFrameIntervalMs > 0) {
 			const now = performance.now();

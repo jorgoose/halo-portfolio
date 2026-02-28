@@ -233,8 +233,7 @@ export function createEnemySystem(
 
 						// If the first thing hit is close to the player, it's a hit
 						if (pick?.hit && pick.pickedPoint) {
-							const hitDist = pick.pickedPoint.subtract(playerPos).length();
-							if (hitDist < 2) {
+							if (B.Vector3.DistanceSquared(pick.pickedPoint, playerPos) < 4) {
 								playerDamage += ENEMY_DAMAGE;
 							}
 						}

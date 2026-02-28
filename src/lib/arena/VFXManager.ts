@@ -1,6 +1,14 @@
 import type { BabylonNamespace } from './types';
 import { COLOR_AMBER, COLOR_ORANGE, COLOR_ENEMY_RED, COLOR_SHIELD_CYAN, MUZZLE_FLASH_DURATION } from './constants';
 
+// Pre-allocated direction/gravity tuples for particle systems (avoids per-call allocation)
+const SPARK_DIR1: [number, number, number] = [-1, 1, -1];
+const SPARK_DIR2: [number, number, number] = [1, 2, 1];
+const SPARK_GRAVITY: [number, number, number] = [0, -5, 0];
+const DEATH_DIR1: [number, number, number] = [-1, 0.5, -1];
+const DEATH_DIR2: [number, number, number] = [1, 3, 1];
+const DEATH_GRAVITY: [number, number, number] = [0, -4, 0];
+
 export interface VFXManager {
 	muzzleFlash: (pos: InstanceType<BabylonNamespace['Vector3']>, dir: InstanceType<BabylonNamespace['Vector3']>) => void;
 	impactSpark: (pos: InstanceType<BabylonNamespace['Vector3']>) => void;
@@ -14,7 +22,6 @@ export function createVFXManager(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>
 ): VFXManager {
-	const pendingDisposals: (() => void)[] = [];
 	const activeTimers = new Set<ReturnType<typeof setTimeout>>();
 	const activeParticles = new Set<InstanceType<BabylonNamespace['ParticleSystem']>>();
 
@@ -38,14 +45,13 @@ export function createVFXManager(
 	ctx.fillRect(0, 0, 64, 64);
 	particleTex.update();
 
-	// Shared muzzle flash material (reused every shot)
+	// --- Pooled muzzle flash mesh + material (never disposed during gameplay) ---
 	const flashMat = new B.StandardMaterial('flashMat', scene);
 	flashMat.emissiveColor = new B.Color3(1.0, 0.85, 0.4);
 	flashMat.diffuseColor = new B.Color3(0, 0, 0);
 	flashMat.disableLighting = true;
 	flashMat.backFaceCulling = false;
 
-	// Procedural flash texture — bright core with soft falloff
 	const flashTex = new B.DynamicTexture('flashTex', 64, scene, false);
 	flashTex.hasAlpha = true;
 	const fCtx = flashTex.getContext();
@@ -60,34 +66,76 @@ export function createVFXManager(
 	flashMat.emissiveTexture = flashTex;
 	flashMat.opacityTexture = flashTex;
 
-	function muzzleFlash(pos: InstanceType<BabylonNamespace['Vector3']>, dir: InstanceType<BabylonNamespace['Vector3']>) {
-		const fwd = dir.normalize();
+	const flashMesh = B.MeshBuilder.CreatePlane('mFlash', { size: 0.25 }, scene);
+	flashMesh.billboardMode = B.Mesh.BILLBOARDMODE_ALL;
+	flashMesh.material = flashMat;
+	flashMesh.isPickable = false;
+	flashMesh.setEnabled(false);
 
-		// Billboard plane at barrel tip — always faces camera
-		const flash = B.MeshBuilder.CreatePlane('mFlash', { size: 0.25 }, scene);
-		flash.position = pos.add(fwd.scale(0.15));
-		flash.billboardMode = B.Mesh.BILLBOARDMODE_ALL;
-		flash.material = flashMat;
-		flash.isPickable = false;
+	// --- Pooled shield flare mesh + material (never disposed during gameplay) ---
+	const shieldMat = new B.StandardMaterial('shieldFlareMat', scene);
+	shieldMat.emissiveColor = new B.Color3(...COLOR_SHIELD_CYAN);
+	shieldMat.diffuseColor = new B.Color3(0, 0, 0);
+	shieldMat.alpha = 0.25;
+	shieldMat.backFaceCulling = false;
 
-		// Animate: scale down and fade over ~60ms
-		let elapsed = 0;
-		const duration = MUZZLE_FLASH_DURATION + 0.02;
-		const cleanup = () => {
-			scene.unregisterBeforeRender(tick);
-			flash.dispose();
-			const idx = pendingDisposals.indexOf(cleanup);
-			if (idx !== -1) pendingDisposals.splice(idx, 1);
-		};
-		const tick = () => {
-			elapsed += scene.getEngine().getDeltaTime() / 1000;
-			const t = Math.min(elapsed / duration, 1);
+	const shieldMesh = B.MeshBuilder.CreateSphere('shieldFlare', { diameter: 2.5, segments: 8 }, scene);
+	shieldMesh.material = shieldMat;
+	shieldMesh.isPickable = false;
+	shieldMesh.setEnabled(false);
+
+	// --- Effect state (driven by single tick) ---
+	let flashActive = false;
+	let flashElapsed = 0;
+	const flashDuration = MUZZLE_FLASH_DURATION + 0.02;
+
+	let shieldActive = false;
+	let shieldElapsed = 0;
+	let shieldCamera: InstanceType<BabylonNamespace['FreeCamera']> | null = null;
+
+	// --- Scratch vectors for muzzle flash positioning ---
+	const _flashDir = new B.Vector3();
+	const _flashPos = new B.Vector3();
+
+	// --- Single render tick for all pooled effects ---
+	const mainTick = () => {
+		const dt = scene.getEngine().getDeltaTime() / 1000;
+
+		if (flashActive) {
+			flashElapsed += dt;
+			const t = Math.min(flashElapsed / flashDuration, 1);
 			const scale = 1.0 + 0.5 * (1 - t); // start 1.5x, shrink to 1x
-			flash.scaling.setAll(scale * (1 - t * 0.6));
-			if (t >= 1) cleanup();
-		};
-		scene.registerBeforeRender(tick);
-		pendingDisposals.push(cleanup);
+			flashMesh.scaling.setAll(scale * (1 - t * 0.6));
+			if (t >= 1) {
+				flashActive = false;
+				flashMesh.setEnabled(false);
+			}
+		}
+
+		if (shieldActive) {
+			shieldElapsed += dt;
+			if (shieldCamera) {
+				shieldMesh.position.copyFrom(shieldCamera.position);
+			}
+			shieldMat.alpha = 0.25 * (1 - shieldElapsed / 0.3);
+			if (shieldElapsed > 0.3) {
+				shieldActive = false;
+				shieldMesh.setEnabled(false);
+				shieldCamera = null;
+			}
+		}
+	};
+	scene.registerBeforeRender(mainTick);
+
+	function muzzleFlash(pos: InstanceType<BabylonNamespace['Vector3']>, dir: InstanceType<BabylonNamespace['Vector3']>) {
+		dir.normalizeToRef(_flashDir);
+		_flashDir.scaleInPlace(0.15);
+		pos.addToRef(_flashDir, _flashPos);
+		flashMesh.position.copyFrom(_flashPos);
+		flashMesh.scaling.setAll(1.5);
+		flashMesh.setEnabled(true);
+		flashActive = true;
+		flashElapsed = 0;
 	}
 
 	function impactSpark(pos: InstanceType<BabylonNamespace['Vector3']>) {
@@ -99,18 +147,18 @@ export function createVFXManager(
 		ps.maxLifeTime = 0.2;
 		ps.minSize = 0.05;
 		ps.maxSize = 0.15;
-		ps.emitRate = 200;
+		ps.emitRate = 80;
 		ps.minEmitPower = 2;
 		ps.maxEmitPower = 5;
 
-		ps.direction1 = new B.Vector3(-1, 1, -1);
-		ps.direction2 = new B.Vector3(1, 2, 1);
+		ps.direction1 = new B.Vector3(...SPARK_DIR1);
+		ps.direction2 = new B.Vector3(...SPARK_DIR2);
 
 		ps.color1 = new B.Color4(...COLOR_ORANGE, 1);
 		ps.color2 = new B.Color4(...COLOR_AMBER, 1);
 		ps.colorDead = new B.Color4(0, 0, 0, 0);
 
-		ps.gravity = new B.Vector3(0, -5, 0);
+		ps.gravity = new B.Vector3(...SPARK_GRAVITY);
 		ps.start();
 		activeParticles.add(ps);
 
@@ -119,38 +167,17 @@ export function createVFXManager(
 			tracked(() => {
 				ps.dispose();
 				activeParticles.delete(ps);
-			}, 300);
+			}, 150);
 		}, 80);
 	}
 
 	function shieldFlare(camera: InstanceType<BabylonNamespace['FreeCamera']>) {
-		const flare = B.MeshBuilder.CreateSphere('shieldFlare', { diameter: 2.5, segments: 8 }, scene);
-		flare.position = camera.position.clone();
-		flare.isPickable = false;
-
-		const mat = new B.StandardMaterial('shieldFlareMat', scene);
-		mat.emissiveColor = new B.Color3(...COLOR_SHIELD_CYAN);
-		mat.diffuseColor = new B.Color3(0, 0, 0);
-		mat.alpha = 0.25;
-		mat.backFaceCulling = false;
-		flare.material = mat;
-
-		let elapsed = 0;
-		const cleanup = () => {
-			scene.unregisterBeforeRender(tick);
-			flare.dispose();
-			mat.dispose();
-			const idx = pendingDisposals.indexOf(cleanup);
-			if (idx !== -1) pendingDisposals.splice(idx, 1);
-		};
-		const tick = () => {
-			elapsed += scene.getEngine().getDeltaTime() / 1000;
-			flare.position = camera.position.clone();
-			mat.alpha = 0.25 * (1 - elapsed / 0.3);
-			if (elapsed > 0.3) cleanup();
-		};
-		scene.registerBeforeRender(tick);
-		pendingDisposals.push(cleanup);
+		shieldMesh.position.copyFrom(camera.position);
+		shieldMat.alpha = 0.25;
+		shieldMesh.setEnabled(true);
+		shieldActive = true;
+		shieldElapsed = 0;
+		shieldCamera = camera;
 	}
 
 	function damageFlash(mesh: InstanceType<BabylonNamespace['Mesh']>) {
@@ -180,14 +207,14 @@ export function createVFXManager(
 		ps.minEmitPower = 3;
 		ps.maxEmitPower = 8;
 
-		ps.direction1 = new B.Vector3(-1, 0.5, -1);
-		ps.direction2 = new B.Vector3(1, 3, 1);
+		ps.direction1 = new B.Vector3(...DEATH_DIR1);
+		ps.direction2 = new B.Vector3(...DEATH_DIR2);
 
 		ps.color1 = new B.Color4(...COLOR_ENEMY_RED, 1);
 		ps.color2 = new B.Color4(...COLOR_ORANGE, 1);
 		ps.colorDead = new B.Color4(0, 0, 0, 0);
 
-		ps.gravity = new B.Vector3(0, -4, 0);
+		ps.gravity = new B.Vector3(...DEATH_GRAVITY);
 		ps.start();
 		activeParticles.add(ps);
 
@@ -196,14 +223,16 @@ export function createVFXManager(
 			tracked(() => {
 				ps.dispose();
 				activeParticles.delete(ps);
-			}, 1000);
+			}, 500);
 		}, 200);
 	}
 
 	function dispose() {
-		// Unregister orphan render callbacks and dispose their meshes
-		pendingDisposals.forEach((fn) => fn());
-		pendingDisposals.length = 0;
+		scene.unregisterBeforeRender(mainTick);
+
+		flashActive = false;
+		shieldActive = false;
+		shieldCamera = null;
 
 		// Clear all tracked timers
 		activeTimers.forEach((id) => clearTimeout(id));
@@ -216,6 +245,10 @@ export function createVFXManager(
 		});
 		activeParticles.clear();
 
+		// Dispose pooled resources
+		flashMesh.dispose();
+		shieldMesh.dispose();
+		shieldMat.dispose();
 		particleTex.dispose();
 		flashTex.dispose();
 		flashMat.dispose();

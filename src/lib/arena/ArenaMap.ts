@@ -18,6 +18,9 @@ export function createArenaMap(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>
 ): ArenaMapResult {
+	const allMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
+	const allMaterials: InstanceType<BabylonNamespace['StandardMaterial']>[] = [];
+
 	// --- 2A: Procedural Sky Dome ---
 	const skyDome = B.MeshBuilder.CreateSphere('skyDome', { diameter: 500, segments: 16 }, scene);
 	skyDome.scaling = new B.Vector3(-1, 1, 1);
@@ -44,6 +47,8 @@ export function createArenaMap(
 	skyMat.disableLighting = true;
 	skyMat.backFaceCulling = false;
 	skyDome.material = skyMat;
+	allMeshes.push(skyDome as InstanceType<BabylonNamespace['Mesh']>);
+	allMaterials.push(skyMat);
 
 	// --- 2B: Materials ---
 	const grassMat = new B.StandardMaterial('grassMat', scene);
@@ -84,11 +89,14 @@ export function createArenaMap(
 	hardLightMat.alpha = 0.3;
 	hardLightMat.backFaceCulling = false;
 
+	allMaterials.push(grassMat, rockMat, cliffMat, waterMat, silverMat, amberGlow, platformMat, hardLightMat);
+
 	// --- 2C: Valley Floor ---
 	const floor = B.MeshBuilder.CreateGround('floor', { width: ARENA_SIZE, height: ARENA_SIZE }, scene);
 	floor.material = grassMat;
 	floor.checkCollisions = true;
 	floor.receiveShadows = true;
+	allMeshes.push(floor as InstanceType<BabylonNamespace['Mesh']>);
 
 	// --- 2D: Two Elevated Bases (Z = ±70) ---
 	const baseZPositions = [-70, 70];
@@ -142,7 +150,18 @@ export function createArenaMap(
 			sideRamp.rotation.x = frontRampDir * -Math.atan2(BASE_HEIGHT, 10);
 			sideRamp.material = platformMat;
 			sideRamp.checkCollisions = true;
+			allMeshes.push(sideRamp as InstanceType<BabylonNamespace['Mesh']>);
 		});
+
+		allMeshes.push(
+			base as InstanceType<BabylonNamespace['Mesh']>,
+			top as InstanceType<BabylonNamespace['Mesh']>,
+			trimFront as InstanceType<BabylonNamespace['Mesh']>,
+			trimBack as InstanceType<BabylonNamespace['Mesh']>,
+			trimLeft as InstanceType<BabylonNamespace['Mesh']>,
+			trimRight as InstanceType<BabylonNamespace['Mesh']>,
+			frontRamp as InstanceType<BabylonNamespace['Mesh']>
+		);
 	});
 
 	// --- 2E: Central Forerunner Monument ---
@@ -161,6 +180,12 @@ export function createArenaMap(
 	topRing.material = amberGlow;
 	topRing.isPickable = false;
 
+	allMeshes.push(
+		centerPlat as InstanceType<BabylonNamespace['Mesh']>,
+		obelisk as InstanceType<BabylonNamespace['Mesh']>,
+		topRing as InstanceType<BabylonNamespace['Mesh']>
+	);
+
 	// 4 hard-light panels facing inward
 	const panelOffsets: [number, number][] = [
 		[4.5, 0],
@@ -174,6 +199,7 @@ export function createArenaMap(
 		panel.lookAt(new B.Vector3(0, 6, 0));
 		panel.material = hardLightMat;
 		panel.isPickable = false;
+		allMeshes.push(panel as InstanceType<BabylonNamespace['Mesh']>);
 	});
 
 	// --- 2F: Rock Formations (~16 clusters) ---
@@ -205,6 +231,7 @@ export function createArenaMap(
 		rock.rotation.y = r.ry;
 		rock.material = rockMat;
 		rock.checkCollisions = true;
+		allMeshes.push(rock as InstanceType<BabylonNamespace['Mesh']>);
 	});
 
 	// --- 2G: Cliff Boundaries ---
@@ -220,12 +247,14 @@ export function createArenaMap(
 		eastCliff.material = cliffMat;
 		eastCliff.checkCollisions = false;
 		eastCliff.isPickable = false;
+		allMeshes.push(eastCliff as InstanceType<BabylonNamespace['Mesh']>);
 
 		const westCliff = B.MeshBuilder.CreateBox(`cliffW_${i}`, { width: 4, height: cliffHeight, depth: 35 }, scene);
 		westCliff.position.set(-half + 2, cliffHeight / 2, zPos);
 		westCliff.material = cliffMat;
 		westCliff.checkCollisions = false;
 		westCliff.isPickable = false;
+		allMeshes.push(westCliff as InstanceType<BabylonNamespace['Mesh']>);
 	}
 
 	// North/South cliff walls (visual only)
@@ -237,12 +266,14 @@ export function createArenaMap(
 		northCliff.material = cliffMat;
 		northCliff.checkCollisions = false;
 		northCliff.isPickable = false;
+		allMeshes.push(northCliff as InstanceType<BabylonNamespace['Mesh']>);
 
 		const southCliff = B.MeshBuilder.CreateBox(`cliffS_${i}`, { width: 35, height: cliffHeight, depth: 4 }, scene);
 		southCliff.position.set(xPos, cliffHeight / 2, half - 2);
 		southCliff.material = cliffMat;
 		southCliff.checkCollisions = false;
 		southCliff.isPickable = false;
+		allMeshes.push(southCliff as InstanceType<BabylonNamespace['Mesh']>);
 	}
 
 	// 4 invisible boundary walls replace 24 cliff collision meshes
@@ -279,6 +310,14 @@ export function createArenaMap(
 	stream.material = waterMat;
 	stream.isPickable = false;
 
+	allMeshes.push(
+		eastWall as InstanceType<BabylonNamespace['Mesh']>,
+		westWall as InstanceType<BabylonNamespace['Mesh']>,
+		northWall as InstanceType<BabylonNamespace['Mesh']>,
+		southWall as InstanceType<BabylonNamespace['Mesh']>,
+		stream as InstanceType<BabylonNamespace['Mesh']>
+	);
+
 	// --- 2I: Spawn Points ---
 	const spawnPoints = {
 		player: [
@@ -308,6 +347,16 @@ export function createArenaMap(
 			{ x: -15, y: 0.5, z: 0 }
 		]
 	};
+
+	// --- Freeze all static meshes and materials ---
+	// Tells Babylon to cache world matrices (skips recalc every frame) and
+	// freeze materials (skips shader-dirty checks). Huge win for ~80+ meshes.
+	for (const mesh of allMeshes) {
+		mesh.freezeWorldMatrix();
+	}
+	for (const mat of allMaterials) {
+		mat.freeze();
+	}
 
 	return { spawnPoints };
 }

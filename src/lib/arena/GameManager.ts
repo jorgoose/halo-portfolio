@@ -63,7 +63,7 @@ export async function initGameManager(
 	scene.fogColor = new B.Color3(...FOG_COLOR);
 
 	// Glow layer
-	const glowLayer = new B.GlowLayer('glow', scene, { blurKernelSize: 16 });
+	const glowLayer = new B.GlowLayer('glow', scene, { blurKernelSize: 16, mainTextureFixedSize: 256 });
 	glowLayer.intensity = 0.3;
 
 	// --- Lighting ---

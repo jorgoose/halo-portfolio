@@ -50,7 +50,7 @@ export function createWeaponSystem(
 
 		// Gun recoil + muzzle flash from barrel tip
 		gun.fireRecoil();
-		vfx.muzzleFlash(gun.barrelTip, ray.direction.clone());
+		vfx.muzzleFlash(gun.barrelTip, ray.direction);
 
 		// Single raycast — pick closest pickable mesh (enemies, walls, rocks)
 		const pick = scene.pickWithRay(ray, (mesh) => {

@@ -31,6 +31,7 @@ export function createVFXManager(
 	const activeTimers = new Set<ReturnType<typeof setTimeout>>();
 	const activeParticles = new Set<InstanceType<BabylonNamespace['ParticleSystem']>>();
 	let lastImpactAt = 0;
+	let flashHideTimer: ReturnType<typeof setTimeout> | null = null;
 
 	/** Schedule a timeout that is automatically tracked for cleanup. */
 	function tracked(fn: () => void, ms: number) {
@@ -163,6 +164,7 @@ export function createVFXManager(
 		flashPetalDown
 	];
 	const setFlashEnabled = (enabled: boolean) => {
+		flashRoot.setEnabled(enabled);
 		for (const cone of flashCones) {
 			cone.setEnabled(enabled);
 		}
@@ -200,6 +202,16 @@ export function createVFXManager(
 	const _flashPos = new B.Vector3();
 	const _flashLookAt = new B.Vector3();
 	const _flashOffset = new B.Vector3();
+
+	function endFlash() {
+		flashActive = false;
+		setFlashEnabled(false);
+		if (flashHideTimer) {
+			clearTimeout(flashHideTimer);
+			activeTimers.delete(flashHideTimer);
+			flashHideTimer = null;
+		}
+	}
 
 	// --- Single render tick for all pooled effects ---
 	const mainTick = () => {
@@ -244,8 +256,7 @@ export function createVFXManager(
 			flashPetalDown.scaling.z = 1.3 - t * 1.05;
 
 			if (t >= 1) {
-				flashActive = false;
-				setFlashEnabled(false);
+				endFlash();
 			}
 		}
 
@@ -295,6 +306,22 @@ export function createVFXManager(
 		setFlashEnabled(true);
 		flashActive = true;
 		flashElapsed = 0;
+
+		// Failsafe: ensure flash is always hidden, even if frame updates stall.
+		if (flashHideTimer) {
+			clearTimeout(flashHideTimer);
+			activeTimers.delete(flashHideTimer);
+			flashHideTimer = null;
+		}
+		const hideDelayMs = Math.ceil(flashDuration * 1000) + 24;
+		flashHideTimer = setTimeout(() => {
+			if (flashHideTimer) {
+				activeTimers.delete(flashHideTimer);
+			}
+			flashHideTimer = null;
+			endFlash();
+		}, hideDelayMs);
+		activeTimers.add(flashHideTimer);
 	}
 
 	function impactSpark(pos: InstanceType<BabylonNamespace['Vector3']>) {
@@ -393,7 +420,7 @@ export function createVFXManager(
 	function dispose() {
 		scene.unregisterBeforeRender(mainTick);
 
-		flashActive = false;
+		endFlash();
 		shieldActive = false;
 		shieldCamera = null;
 

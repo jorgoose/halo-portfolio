@@ -65,6 +65,7 @@
 
   $: shieldPct = (hud.shield / hud.maxShield) * 100;
   $: healthPct = (hud.health / hud.maxHealth) * 100;
+  $: shieldDepleted = shieldPct <= 0 && !hud.shieldRecharging;
 </script>
 
 <svelte:head>
@@ -103,30 +104,69 @@
         <div class="crosshair-v"></div>
       </div>
 
-      <!-- Shield Bar -->
-      <div class="shield-bar-container">
-        <div class="bar-label">SHIELD</div>
-        <div class="bar-track shield-track">
-          <div
-            class="bar-fill shield-fill"
-            class:recharging={hud.shieldRecharging}
-            style="width: {shieldPct}%"
-          ></div>
-        </div>
-        <div class="bar-value">{Math.ceil(hud.shield)}</div>
+      <!-- Shield Arc -->
+      <div class="shield-wrapper" class:recharging={hud.shieldRecharging} class:depleted={shieldDepleted}>
+        <svg class="shield-arc" viewBox="0 0 420 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="shieldGrad" x1="210" y1="2" x2="210" y2="29" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#b8f0ff" stop-opacity="0.8"/>
+              <stop offset="35%" stop-color="#5ec3ff" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#1565c0" stop-opacity="0.4"/>
+            </linearGradient>
+            <clipPath id="arcClip">
+              <path d="M 3,26 Q 210,2 417,26 L 419,29 Q 210,15 1,29 Z"/>
+            </clipPath>
+            <filter id="shieldGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- Background track -->
+          <path
+            d="M 3,26 Q 210,2 417,26 L 419,29 Q 210,15 1,29 Z"
+            fill="rgba(0,20,40,0.3)"
+            stroke="rgba(94,195,255,0.12)"
+            stroke-width="0.5"
+          />
+
+          <!-- Shield fill -->
+          <g clip-path="url(#arcClip)" filter="url(#shieldGlow)">
+            <rect class="shield-fill-rect" x="0" y="0" width={shieldPct * 4.2} height="32" fill="url(#shieldGrad)"/>
+          </g>
+
+          <!-- Glass highlight near top edge -->
+          <path
+            d="M 12,26 Q 210,4 408,26"
+            stroke="rgba(255,255,255,0.15)"
+            stroke-width="0.6"
+            clip-path="url(#arcClip)"
+          />
+
+          <!-- Segment dividers -->
+          <g clip-path="url(#arcClip)">
+            {#each [84, 168, 252, 336] as x}
+              <line x1={x} y1="0" x2={x} y2="32" stroke="rgba(0,10,20,0.55)" stroke-width="1.5"/>
+            {/each}
+          </g>
+
+          <!-- Top edge highlight -->
+          <path
+            d="M 3,26 Q 210,2 417,26"
+            stroke="rgba(94,195,255,0.2)"
+            stroke-width="0.5"
+          />
+        </svg>
       </div>
 
-      <!-- Health Bar -->
-      <div class="health-bar-container">
-        <div class="bar-label">HEALTH</div>
-        <div class="bar-track health-track">
-          <div
-            class="bar-fill health-fill"
-            class:low={healthPct < 30}
-            style="width: {healthPct}%"
-          ></div>
-        </div>
-        <div class="bar-value">{Math.ceil(hud.health)}</div>
+      <!-- Health Segments -->
+      <div class="health-wrapper" class:critical={healthPct < 30}>
+        {#each Array(10) as _, i}
+          <div class="health-segment" class:filled={healthPct > i * 10}></div>
+        {/each}
       </div>
 
       <!-- Ammo Counter -->
@@ -398,96 +438,108 @@ html, body {
   transform: translateX(-50%);
 }
 
-/* Shield Bar */
-.shield-bar-container {
+/* ===== SHIELD ARC (Halo visor-style) ===== */
+.shield-wrapper {
   position: absolute;
-  top: 24px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  width: clamp(260px, 32vw, 460px);
 }
 
-.bar-label {
-  font-size: 0.65rem;
-  color: rgba(94, 195, 255, 0.7);
-  letter-spacing: 0.15em;
-  min-width: 52px;
-  text-align: right;
+/* Visor haze ambient glow */
+.shield-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 130%;
+  height: 500%;
+  background: radial-gradient(ellipse at center, rgba(94, 195, 255, 0.06) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-.bar-track {
-  width: 200px;
-  height: 8px;
-  background: rgba(94, 195, 255, 0.1);
-  border: 1px solid rgba(94, 195, 255, 0.25);
-  border-radius: 2px;
-  overflow: hidden;
+.shield-arc {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(94, 195, 255, 0.25));
 }
 
-.bar-fill {
-  height: 100%;
+.shield-fill-rect {
   transition: width 0.15s ease-out;
-  border-radius: 1px;
 }
 
-.shield-fill {
-  background: linear-gradient(90deg, #1976d2, #5ec3ff);
-  box-shadow: 0 0 6px rgba(94, 195, 255, 0.4);
+/* Recharging — pulsing glow bloom */
+.shield-wrapper.recharging .shield-arc {
+  animation: shield-arc-pulse 0.7s ease-in-out infinite;
 }
 
-.shield-fill.recharging {
-  animation: shield-pulse 0.6s ease-in-out infinite;
+@keyframes shield-arc-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(94, 195, 255, 0.25));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(94, 195, 255, 0.7))
+           drop-shadow(0 0 36px rgba(94, 195, 255, 0.25));
+  }
 }
 
-@keyframes shield-pulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+/* Depleted — bright flash on shield break */
+.shield-wrapper.depleted .shield-arc {
+  animation: shield-arc-flash 0.35s ease-out;
 }
 
-.bar-value {
-  font-size: 0.7rem;
-  color: rgba(94, 195, 255, 0.8);
-  min-width: 30px;
+@keyframes shield-arc-flash {
+  0% {
+    filter: drop-shadow(0 0 24px rgba(94, 195, 255, 0.9)) brightness(1.8);
+  }
+  100% {
+    filter: drop-shadow(0 0 6px rgba(94, 195, 255, 0.25));
+  }
 }
 
-/* Health Bar */
-.health-bar-container {
+/* ===== HEALTH SEGMENTS (Halo-style) ===== */
+.health-wrapper {
   position: absolute;
-  top: 46px;
+  top: 52px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 3px;
 }
 
-.health-fill {
-  background: linear-gradient(90deg, #d32f2f, #ff6659);
-  box-shadow: 0 0 6px rgba(211, 47, 47, 0.4);
+.health-segment {
+  width: 20px;
+  height: 6px;
+  background: rgba(255, 80, 60, 0.12);
+  border: 1px solid rgba(255, 80, 60, 0.15);
+  clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%);
+  transition: background 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
-.health-fill.low {
-  animation: health-critical 0.5s ease-in-out infinite;
+.health-segment.filled {
+  background: linear-gradient(to bottom, #ff8a65, #e64a19);
+  border-color: rgba(255, 100, 60, 0.4);
+  box-shadow: 0 0 6px rgba(255, 80, 50, 0.4);
 }
 
-@keyframes health-critical {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; box-shadow: 0 0 12px rgba(255, 0, 0, 0.6); }
+/* Critical health — urgent red pulse */
+.health-wrapper.critical .health-segment.filled {
+  animation: health-critical-pulse 0.5s ease-in-out infinite;
 }
 
-.health-track {
-  border-color: rgba(211, 47, 47, 0.25);
-  background: rgba(211, 47, 47, 0.08);
-}
-
-.health-bar-container .bar-label {
-  color: rgba(255, 102, 89, 0.7);
-}
-
-.health-bar-container .bar-value {
-  color: rgba(255, 102, 89, 0.8);
+@keyframes health-critical-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    box-shadow: 0 0 4px rgba(255, 40, 20, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 14px rgba(255, 40, 20, 0.7);
+  }
 }
 
 /* Ammo Counter */
@@ -659,8 +711,19 @@ html, body {
     padding: 0.6rem 2rem;
   }
 
-  .bar-track {
-    width: 120px;
+  .shield-wrapper {
+    width: clamp(200px, 55vw, 300px);
+    top: 10px;
+  }
+
+  .health-wrapper {
+    top: 38px;
+    gap: 2px;
+  }
+
+  .health-segment {
+    width: 14px;
+    height: 5px;
   }
 
   .ammo-current {

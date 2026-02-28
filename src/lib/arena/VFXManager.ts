@@ -52,105 +52,120 @@ export function createVFXManager(
 	ctx.fillRect(0, 0, 64, 64);
 	particleTex.update();
 
-	// --- Pooled directional muzzle flash rig ---
-	const flashHaloTex = new B.DynamicTexture('flashHaloTex', 64, scene, false);
-	flashHaloTex.hasAlpha = true;
-	const haloCtx = flashHaloTex.getContext();
-	const haloGrad = haloCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
-	haloGrad.addColorStop(0, 'rgba(255, 245, 210, 1)');
-	haloGrad.addColorStop(0.18, 'rgba(255, 210, 120, 0.9)');
-	haloGrad.addColorStop(0.55, 'rgba(255, 140, 40, 0.45)');
-	haloGrad.addColorStop(1, 'rgba(255, 80, 0, 0)');
-	haloCtx.fillStyle = haloGrad;
-	haloCtx.fillRect(0, 0, 64, 64);
-	flashHaloTex.update();
-
-	const flashStreakTex = new B.DynamicTexture('flashStreakTex', { width: 64, height: 128 }, scene, false);
-	flashStreakTex.hasAlpha = true;
-	const streakCtx = flashStreakTex.getContext();
-	const streakGrad = streakCtx.createLinearGradient(0, 128, 0, 0);
-	streakGrad.addColorStop(0, 'rgba(255, 140, 0, 0)');
-	streakGrad.addColorStop(0.25, 'rgba(255, 190, 70, 0.45)');
-	streakGrad.addColorStop(0.7, 'rgba(255, 235, 170, 0.95)');
-	streakGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-	streakCtx.fillStyle = streakGrad;
-	streakCtx.fillRect(0, 0, 64, 128);
-	flashStreakTex.update();
-
+	// --- Pooled conical muzzle flash rig ---
 	const flashCoreMat = new B.StandardMaterial('flashCoreMat', scene);
-	flashCoreMat.emissiveColor = new B.Color3(1.0, 0.84, 0.35);
+	flashCoreMat.emissiveColor = new B.Color3(1.0, 0.9, 0.52);
 	flashCoreMat.diffuseColor = new B.Color3(0, 0, 0);
 	flashCoreMat.specularColor = new B.Color3(0, 0, 0);
 	flashCoreMat.alpha = 0.95;
 	flashCoreMat.disableLighting = true;
 	flashCoreMat.backFaceCulling = false;
 
-	const flashStreakMat = new B.StandardMaterial('flashStreakMat', scene);
-	flashStreakMat.emissiveTexture = flashStreakTex;
-	flashStreakMat.opacityTexture = flashStreakTex;
-	flashStreakMat.emissiveColor = new B.Color3(1.0, 0.86, 0.48);
-	flashStreakMat.diffuseColor = new B.Color3(0, 0, 0);
-	flashStreakMat.specularColor = new B.Color3(0, 0, 0);
-	flashStreakMat.alpha = 0.9;
-	flashStreakMat.disableLighting = true;
-	flashStreakMat.backFaceCulling = false;
-
-	const flashHaloMat = new B.StandardMaterial('flashHaloMat', scene);
-	flashHaloMat.emissiveTexture = flashHaloTex;
-	flashHaloMat.opacityTexture = flashHaloTex;
-	flashHaloMat.emissiveColor = new B.Color3(1.0, 0.9, 0.55);
-	flashHaloMat.diffuseColor = new B.Color3(0, 0, 0);
-	flashHaloMat.specularColor = new B.Color3(0, 0, 0);
-	flashHaloMat.alpha = 0.95;
-	flashHaloMat.disableLighting = true;
-	flashHaloMat.backFaceCulling = false;
+	const flashPetalMat = new B.StandardMaterial('flashPetalMat', scene);
+	flashPetalMat.emissiveColor = new B.Color3(1.0, 0.72, 0.24);
+	flashPetalMat.diffuseColor = new B.Color3(0, 0, 0);
+	flashPetalMat.specularColor = new B.Color3(0, 0, 0);
+	flashPetalMat.alpha = 0.78;
+	flashPetalMat.disableLighting = true;
+	flashPetalMat.backFaceCulling = false;
 
 	const flashRoot = new B.TransformNode('flashRoot', scene);
 
-	const flashCore = B.MeshBuilder.CreateCylinder(
-		'mFlashCore',
-		{ height: lowQuality ? 0.2 : 0.28, diameterTop: 0.02, diameterBottom: lowQuality ? 0.08 : 0.11, tessellation: 6 },
-		scene
+	function createFlashCone(
+		name: string,
+		length: number,
+		width: number,
+		material: InstanceType<BabylonNamespace['StandardMaterial']>
+	) {
+		const cone = B.MeshBuilder.CreateCylinder(
+			name,
+			{
+				height: length,
+				diameterTop: 0.002,
+				diameterBottom: width,
+				tessellation: 6
+			},
+			scene
+		);
+		cone.rotation.x = Math.PI / 2;
+		cone.position.z = length * 0.5;
+		cone.material = material;
+		cone.isPickable = false;
+		return cone;
+	}
+
+	const flashCorePivot = new B.TransformNode('flashCorePivot', scene);
+	flashCorePivot.parent = flashRoot;
+	const flashCoreCone = createFlashCone(
+		'mFlashCoreCone',
+		lowQuality ? 0.2 : 0.28,
+		lowQuality ? 0.08 : 0.11,
+		flashCoreMat
 	);
-	flashCore.rotation.x = Math.PI / 2;
-	flashCore.position.z = lowQuality ? 0.1 : 0.14;
-	flashCore.material = flashCoreMat;
-	flashCore.isPickable = false;
-	flashCore.parent = flashRoot;
+	flashCoreCone.parent = flashCorePivot;
 
-	const flashStreakA = B.MeshBuilder.CreatePlane(
-		'mFlashStreakA',
-		{ width: lowQuality ? 0.05 : 0.06, height: lowQuality ? 0.28 : 0.42 },
-		scene
+	const flashPlumePivot = new B.TransformNode('flashPlumePivot', scene);
+	flashPlumePivot.parent = flashRoot;
+	const flashPlumeCone = createFlashCone(
+		'mFlashPlumeCone',
+		lowQuality ? 0.28 : 0.4,
+		lowQuality ? 0.05 : 0.07,
+		flashCoreMat
 	);
-	flashStreakA.rotation.x = Math.PI / 2;
-	flashStreakA.position.z = lowQuality ? 0.12 : 0.16;
-	flashStreakA.material = flashStreakMat;
-	flashStreakA.isPickable = false;
-	flashStreakA.parent = flashRoot;
+	flashPlumeCone.parent = flashPlumePivot;
 
-	const flashStreakB = B.MeshBuilder.CreatePlane(
-		'mFlashStreakB',
-		{ width: lowQuality ? 0.05 : 0.06, height: lowQuality ? 0.26 : 0.38 },
-		scene
+	const flashPetalLeftPivot = new B.TransformNode('flashPetalLeftPivot', scene);
+	flashPetalLeftPivot.parent = flashRoot;
+	const flashPetalLeft = createFlashCone(
+		'mFlashPetalLeft',
+		lowQuality ? 0.18 : 0.24,
+		lowQuality ? 0.04 : 0.055,
+		flashPetalMat
 	);
-	flashStreakB.rotation.x = Math.PI / 2;
-	flashStreakB.position.z = lowQuality ? 0.11 : 0.15;
-	flashStreakB.material = flashStreakMat;
-	flashStreakB.isPickable = false;
-	flashStreakB.parent = flashRoot;
+	flashPetalLeft.parent = flashPetalLeftPivot;
 
-	const flashHalo = B.MeshBuilder.CreatePlane('mFlashHalo', { size: lowQuality ? 0.14 : 0.18 }, scene);
-	flashHalo.position.z = 0.03;
-	flashHalo.material = flashHaloMat;
-	flashHalo.isPickable = false;
-	flashHalo.parent = flashRoot;
+	const flashPetalRightPivot = new B.TransformNode('flashPetalRightPivot', scene);
+	flashPetalRightPivot.parent = flashRoot;
+	const flashPetalRight = createFlashCone(
+		'mFlashPetalRight',
+		lowQuality ? 0.18 : 0.24,
+		lowQuality ? 0.04 : 0.055,
+		flashPetalMat
+	);
+	flashPetalRight.parent = flashPetalRightPivot;
 
+	const flashPetalUpPivot = new B.TransformNode('flashPetalUpPivot', scene);
+	flashPetalUpPivot.parent = flashRoot;
+	const flashPetalUp = createFlashCone(
+		'mFlashPetalUp',
+		lowQuality ? 0.16 : 0.22,
+		lowQuality ? 0.036 : 0.05,
+		flashPetalMat
+	);
+	flashPetalUp.parent = flashPetalUpPivot;
+
+	const flashPetalDownPivot = new B.TransformNode('flashPetalDownPivot', scene);
+	flashPetalDownPivot.parent = flashRoot;
+	const flashPetalDown = createFlashCone(
+		'mFlashPetalDown',
+		lowQuality ? 0.16 : 0.22,
+		lowQuality ? 0.036 : 0.05,
+		flashPetalMat
+	);
+	flashPetalDown.parent = flashPetalDownPivot;
+
+	const flashCones = [
+		flashCoreCone,
+		flashPlumeCone,
+		flashPetalLeft,
+		flashPetalRight,
+		flashPetalUp,
+		flashPetalDown
+	];
 	const setFlashEnabled = (enabled: boolean) => {
-		flashCore.setEnabled(enabled);
-		flashStreakA.setEnabled(enabled);
-		flashStreakB.setEnabled(enabled);
-		flashHalo.setEnabled(enabled);
+		for (const cone of flashCones) {
+			cone.setEnabled(enabled);
+		}
 	};
 	setFlashEnabled(false);
 
@@ -202,21 +217,31 @@ export function createVFXManager(
 
 			const alphaFalloff = 1 - t;
 			flashCoreMat.alpha = 0.95 * alphaFalloff;
-			flashStreakMat.alpha = 0.88 * alphaFalloff;
-			flashHaloMat.alpha = 0.9 * alphaFalloff;
+			flashPetalMat.alpha = 0.78 * alphaFalloff * alphaFalloff;
 
-			flashCore.scaling.x = 1 + t * 0.35;
-			flashCore.scaling.y = 1 + t * 0.35;
-			flashCore.scaling.z = 1.25 - t * 0.8;
+			flashCoreCone.scaling.x = 1.08 - t * 0.35;
+			flashCoreCone.scaling.y = 1.08 - t * 0.35;
+			flashCoreCone.scaling.z = 1.6 - t * 1.15;
 
-			const streakLen = 1.45 - t * 0.95;
-			flashStreakA.scaling.x = 1 - t * 0.3;
-			flashStreakA.scaling.y = streakLen;
-			flashStreakB.scaling.x = 1 - t * 0.25;
-			flashStreakB.scaling.y = streakLen * 0.9;
+			flashPlumeCone.scaling.x = 1 - t * 0.2;
+			flashPlumeCone.scaling.y = 1 - t * 0.2;
+			flashPlumeCone.scaling.z = 1.7 - t * 1.25;
 
-			const haloScale = 1.2 - t * 0.9;
-			flashHalo.scaling.setAll(haloScale);
+			flashPetalLeft.scaling.x = 1 - t * 0.4;
+			flashPetalLeft.scaling.y = 1 - t * 0.4;
+			flashPetalLeft.scaling.z = 1.4 - t * 1.1;
+
+			flashPetalRight.scaling.x = 1 - t * 0.4;
+			flashPetalRight.scaling.y = 1 - t * 0.4;
+			flashPetalRight.scaling.z = 1.4 - t * 1.1;
+
+			flashPetalUp.scaling.x = 1 - t * 0.42;
+			flashPetalUp.scaling.y = 1 - t * 0.42;
+			flashPetalUp.scaling.z = 1.3 - t * 1.05;
+
+			flashPetalDown.scaling.x = 1 - t * 0.42;
+			flashPetalDown.scaling.y = 1 - t * 0.42;
+			flashPetalDown.scaling.z = 1.3 - t * 1.05;
 
 			if (t >= 1) {
 				flashActive = false;
@@ -249,19 +274,23 @@ export function createVFXManager(
 		_flashLookAt.addInPlace(_flashDir);
 		flashRoot.lookAt(_flashLookAt);
 
-		const roll = Math.random() * Math.PI;
-		flashStreakA.rotation.z = roll;
-		flashStreakB.rotation.z = roll + Math.PI / 2;
-		flashHalo.rotation.z = roll * 0.65;
+		const spread = (lowQuality ? 0.45 : 0.58) + Math.random() * 0.08;
+		flashCorePivot.rotation.set(0, 0, 0);
+		flashPlumePivot.rotation.set(0, 0, 0);
+		flashPetalLeftPivot.rotation.set(0, -spread, 0);
+		flashPetalRightPivot.rotation.set(0, spread, 0);
+		flashPetalUpPivot.rotation.set(-spread * 0.72, 0, 0);
+		flashPetalDownPivot.rotation.set(spread * 0.72, 0, 0);
 
-		flashCore.scaling.set(1, 1, 1.25);
-		flashStreakA.scaling.set(1, 1.45, 1);
-		flashStreakB.scaling.set(1, 1.3, 1);
-		flashHalo.scaling.setAll(1.2);
+		flashCoreCone.scaling.set(1.08, 1.08, 1.6);
+		flashPlumeCone.scaling.set(1, 1, 1.7);
+		flashPetalLeft.scaling.set(1, 1, 1.4);
+		flashPetalRight.scaling.set(1, 1, 1.4);
+		flashPetalUp.scaling.set(1, 1, 1.3);
+		flashPetalDown.scaling.set(1, 1, 1.3);
 
 		flashCoreMat.alpha = 0.95;
-		flashStreakMat.alpha = 0.88;
-		flashHaloMat.alpha = 0.9;
+		flashPetalMat.alpha = 0.78;
 
 		setFlashEnabled(true);
 		flashActive = true;
@@ -380,19 +409,24 @@ export function createVFXManager(
 		activeParticles.clear();
 
 		// Dispose pooled resources
-		flashCore.dispose();
-		flashStreakA.dispose();
-		flashStreakB.dispose();
-		flashHalo.dispose();
+		flashCoreCone.dispose();
+		flashPlumeCone.dispose();
+		flashPetalLeft.dispose();
+		flashPetalRight.dispose();
+		flashPetalUp.dispose();
+		flashPetalDown.dispose();
+		flashCorePivot.dispose();
+		flashPlumePivot.dispose();
+		flashPetalLeftPivot.dispose();
+		flashPetalRightPivot.dispose();
+		flashPetalUpPivot.dispose();
+		flashPetalDownPivot.dispose();
 		flashRoot.dispose();
 		shieldMesh.dispose();
 		shieldMat.dispose();
 		particleTex.dispose();
-		flashHaloTex.dispose();
-		flashStreakTex.dispose();
 		flashCoreMat.dispose();
-		flashStreakMat.dispose();
-		flashHaloMat.dispose();
+		flashPetalMat.dispose();
 	}
 
 	return { muzzleFlash, impactSpark, shieldFlare, damageFlash, deathEffect, dispose };

@@ -20,70 +20,40 @@ export async function createGunViewModel(
 	camera: InstanceType<BabylonNamespace['FreeCamera']>,
 	options: GunViewModelOptions = {}
 ): Promise<GunViewModel> {
-	const lowQuality = options.lowQuality ?? false;
+	void options;
 
 	// Root node parented to camera
 	const root = new B.TransformNode('gunRoot', scene);
 	root.parent = camera;
 	root.position = new B.Vector3(0.3, -0.3, 0.7);
 
-	let barrelTipLocal = new B.Vector3(0, 0.01, 0.47);
+	// Register GLTF loader plugin
+	await import('@babylonjs/loaders/glTF');
 
-	if (lowQuality) {
-		const lowPolyMat = new B.StandardMaterial('gunLowPolyMat', scene);
-		lowPolyMat.diffuseColor = new B.Color3(0.1, 0.1, 0.12);
-		lowPolyMat.specularColor = new B.Color3(0.05, 0.05, 0.05);
-		lowPolyMat.emissiveColor = new B.Color3(0.02, 0.03, 0.04);
+	const { SceneLoader } = await import('@babylonjs/core');
 
-		const body = B.MeshBuilder.CreateBox(
-			'gunBodyLow',
-			{ width: 0.14, height: 0.14, depth: 0.56 },
-			scene
-		);
-		body.parent = root;
-		body.position = new B.Vector3(0, -0.01, 0.1);
-		body.material = lowPolyMat;
-		body.isPickable = false;
+	// Load GLB model from R2
+	const result = await SceneLoader.ImportMeshAsync(
+		'',
+		'https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/',
+		'ar_model.glb',
+		scene
+	);
 
-		const barrel = B.MeshBuilder.CreateCylinder(
-			'gunBarrelLow',
-			{ height: 0.32, diameter: 0.035, tessellation: 6 },
-			scene
-		);
-		barrel.parent = root;
-		barrel.rotation.x = Math.PI / 2;
-		barrel.position = new B.Vector3(0, -0.01, 0.34);
-		barrel.material = lowPolyMat;
-		barrel.isPickable = false;
+	// Parent all loaded meshes under root, make non-pickable
+	const loadedRoot = new B.TransformNode('gunModelRoot', scene);
+	loadedRoot.parent = root;
+	loadedRoot.scaling = new B.Vector3(1, 1, 1);
+	loadedRoot.rotation = new B.Vector3(0, Math.PI, 0); // face forward
 
-		barrelTipLocal = new B.Vector3(0, -0.01, 0.48);
-	} else {
-		// Register GLTF loader plugin
-		await import('@babylonjs/loaders/glTF');
-
-		const { SceneLoader } = await import('@babylonjs/core');
-
-		// Load GLB model from R2
-		const result = await SceneLoader.ImportMeshAsync(
-			'',
-			'https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/',
-			'ar_model.glb',
-			scene
-		);
-
-		// Parent all loaded meshes under root, make non-pickable
-		const loadedRoot = new B.TransformNode('gunModelRoot', scene);
-		loadedRoot.parent = root;
-		loadedRoot.scaling = new B.Vector3(1, 1, 1);
-		loadedRoot.rotation = new B.Vector3(0, Math.PI, 0); // face forward
-
-		for (const mesh of result.meshes) {
-			if (!mesh.parent) {
-				mesh.parent = loadedRoot;
-			}
-			mesh.isPickable = false;
+	for (const mesh of result.meshes) {
+		if (!mesh.parent) {
+			mesh.parent = loadedRoot;
 		}
+		mesh.isPickable = false;
 	}
+
+	const barrelTipLocal = new B.Vector3(0, 0.01, 0.47);
 
 	// --- Ammo Counter Screen ---
 	const ammoTex = new B.DynamicTexture('ammoTex', { width: 256, height: 128 }, scene, false);

@@ -62,10 +62,18 @@ export async function createGunViewModel(
 	ammoMat.disableLighting = true;
 	ammoMat.backFaceCulling = false;
 
-	const ammoPlane = B.MeshBuilder.CreatePlane('ammoScreen', { width: 0.045, height: 0.022 }, scene);
+	const ammoScreenHeight = 0.15;
+	const ammoScreenAngle = Math.PI / 3.0;
+	const ammoPlane = B.MeshBuilder.CreatePlane('ammoScreen', { width: 0.045, height: ammoScreenHeight }, scene);
 	ammoPlane.parent = root;
-	ammoPlane.position = new B.Vector3(0.0, 0.325, -0.18);
-	ammoPlane.rotation = new B.Vector3(Math.PI / 2.5, 0, 0);
+	// Offset center so top edge stays anchored at (0, 0.325, -0.18)
+	const halfGrowth = (ammoScreenHeight - 0.022) / 2;
+	ammoPlane.position = new B.Vector3(
+		0.0,
+		0.325 - halfGrowth * Math.cos(ammoScreenAngle),
+		-0.18 + halfGrowth * Math.sin(ammoScreenAngle)
+	);
+	ammoPlane.rotation = new B.Vector3(ammoScreenAngle, 0, 0);
 	ammoPlane.material = ammoMat;
 	ammoPlane.isPickable = false;
 

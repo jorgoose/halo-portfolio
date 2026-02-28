@@ -62,6 +62,10 @@ export async function initGameManager(
 		window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const qualityParam =
 		typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('quality') : null;
+	const enemiesParam =
+		typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('enemies') : null;
+	// Temporary perf mode: disable enemies by default; re-enable with ?enemies=on
+	const enemiesEnabled = enemiesParam === 'on';
 	const strictLowHardware = hardwareThreads <= 4 || deviceMemoryGb <= 4;
 	const moderateHardware = hardwareThreads <= 8 || deviceMemoryGb <= 8;
 	let lowQualityMode = prefersReducedMotion || strictLowHardware;
@@ -154,9 +158,17 @@ export async function initGameManager(
 		lowQuality: lowQualityMode
 	});
 	let weapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, gunViewModel);
-	let enemySystem: EnemySystem = createEnemySystem(B, scene, spawnPoints, vfxManager, {
-		lowQuality: lowQualityMode
-	});
+	let enemySystem: EnemySystem = enemiesEnabled
+		? createEnemySystem(B, scene, spawnPoints, vfxManager, {
+				lowQuality: lowQualityMode
+			})
+		: {
+				enemies: [],
+				update: () => 0,
+				damageEnemy: () => false,
+				reset: () => {},
+				dispose: () => {}
+			};
 	const hud = createHudState(hudCallback);
 
 	let kills = 0;

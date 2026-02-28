@@ -32,6 +32,7 @@ export function createVFXManager(
 	const activeParticles = new Set<InstanceType<BabylonNamespace['ParticleSystem']>>();
 	let lastImpactAt = 0;
 	let flashHideTimer: ReturnType<typeof setTimeout> | null = null;
+	let flashFramesLeft = 0;
 
 	/** Schedule a timeout that is automatically tracked for cleanup. */
 	function tracked(fn: () => void, ms: number) {
@@ -166,6 +167,7 @@ export function createVFXManager(
 	const setFlashEnabled = (enabled: boolean) => {
 		flashRoot.setEnabled(enabled);
 		for (const cone of flashCones) {
+			cone.isVisible = enabled;
 			cone.setEnabled(enabled);
 		}
 	};
@@ -205,6 +207,9 @@ export function createVFXManager(
 
 	function endFlash() {
 		flashActive = false;
+		flashFramesLeft = 0;
+		flashCoreMat.alpha = 0;
+		flashPetalMat.alpha = 0;
 		setFlashEnabled(false);
 		if (flashHideTimer) {
 			clearTimeout(flashHideTimer);
@@ -218,44 +223,49 @@ export function createVFXManager(
 		const dt = scene.getEngine().getDeltaTime() / 1000;
 
 		if (flashActive) {
-			flashElapsed += dt;
-			const t = Math.min(flashElapsed / flashDuration, 1);
+			try {
+				flashElapsed += dt;
+				flashFramesLeft -= 1;
+				const t = Math.min(flashElapsed / flashDuration, 1);
 
-			// Drive flash outward from the muzzle instead of a static camera-facing pop.
-			_flashDir.scaleToRef((lowQuality ? 0.12 : 0.2) * t, _flashOffset);
-			_flashPos.copyFrom(_flashBasePos);
-			_flashPos.addInPlace(_flashOffset);
-			flashRoot.position.copyFrom(_flashPos);
+				// Drive flash outward from the muzzle instead of a static camera-facing pop.
+				_flashDir.scaleToRef((lowQuality ? 0.12 : 0.2) * t, _flashOffset);
+				_flashPos.copyFrom(_flashBasePos);
+				_flashPos.addInPlace(_flashOffset);
+				flashRoot.position.copyFrom(_flashPos);
 
-			const alphaFalloff = 1 - t;
-			flashCoreMat.alpha = 0.95 * alphaFalloff;
-			flashPetalMat.alpha = 0.78 * alphaFalloff * alphaFalloff;
+				const alphaFalloff = 1 - t;
+				flashCoreMat.alpha = 0.95 * alphaFalloff;
+				flashPetalMat.alpha = 0.78 * alphaFalloff * alphaFalloff;
 
-			flashCoreCone.scaling.x = 1.08 - t * 0.35;
-			flashCoreCone.scaling.y = 1.08 - t * 0.35;
-			flashCoreCone.scaling.z = 1.6 - t * 1.15;
+				flashCoreCone.scaling.x = 1.08 - t * 0.35;
+				flashCoreCone.scaling.y = 1.08 - t * 0.35;
+				flashCoreCone.scaling.z = 1.6 - t * 1.15;
 
-			flashPlumeCone.scaling.x = 1 - t * 0.2;
-			flashPlumeCone.scaling.y = 1 - t * 0.2;
-			flashPlumeCone.scaling.z = 1.7 - t * 1.25;
+				flashPlumeCone.scaling.x = 1 - t * 0.2;
+				flashPlumeCone.scaling.y = 1 - t * 0.2;
+				flashPlumeCone.scaling.z = 1.7 - t * 1.25;
 
-			flashPetalLeft.scaling.x = 1 - t * 0.4;
-			flashPetalLeft.scaling.y = 1 - t * 0.4;
-			flashPetalLeft.scaling.z = 1.4 - t * 1.1;
+				flashPetalLeft.scaling.x = 1 - t * 0.4;
+				flashPetalLeft.scaling.y = 1 - t * 0.4;
+				flashPetalLeft.scaling.z = 1.4 - t * 1.1;
 
-			flashPetalRight.scaling.x = 1 - t * 0.4;
-			flashPetalRight.scaling.y = 1 - t * 0.4;
-			flashPetalRight.scaling.z = 1.4 - t * 1.1;
+				flashPetalRight.scaling.x = 1 - t * 0.4;
+				flashPetalRight.scaling.y = 1 - t * 0.4;
+				flashPetalRight.scaling.z = 1.4 - t * 1.1;
 
-			flashPetalUp.scaling.x = 1 - t * 0.42;
-			flashPetalUp.scaling.y = 1 - t * 0.42;
-			flashPetalUp.scaling.z = 1.3 - t * 1.05;
+				flashPetalUp.scaling.x = 1 - t * 0.42;
+				flashPetalUp.scaling.y = 1 - t * 0.42;
+				flashPetalUp.scaling.z = 1.3 - t * 1.05;
 
-			flashPetalDown.scaling.x = 1 - t * 0.42;
-			flashPetalDown.scaling.y = 1 - t * 0.42;
-			flashPetalDown.scaling.z = 1.3 - t * 1.05;
+				flashPetalDown.scaling.x = 1 - t * 0.42;
+				flashPetalDown.scaling.y = 1 - t * 0.42;
+				flashPetalDown.scaling.z = 1.3 - t * 1.05;
 
-			if (t >= 1) {
+				if (t >= 1 || flashFramesLeft <= 0) {
+					endFlash();
+				}
+			} catch {
 				endFlash();
 			}
 		}
@@ -276,7 +286,14 @@ export function createVFXManager(
 	scene.registerBeforeRender(mainTick);
 
 	function muzzleFlash(pos: InstanceType<BabylonNamespace['Vector3']>, dir: InstanceType<BabylonNamespace['Vector3']>) {
-		dir.normalizeToRef(_flashDir);
+		// Reset any previous flash instance to avoid lingering detached meshes.
+		endFlash();
+
+		if (dir.lengthSquared() < 0.0001) {
+			_flashDir.set(0, 0, 1);
+		} else {
+			dir.normalizeToRef(_flashDir);
+		}
 		_flashDir.scaleToRef(lowQuality ? 0.1 : 0.14, _flashOffset);
 		pos.addToRef(_flashOffset, _flashBasePos);
 		flashRoot.position.copyFrom(_flashBasePos);
@@ -306,6 +323,7 @@ export function createVFXManager(
 		setFlashEnabled(true);
 		flashActive = true;
 		flashElapsed = 0;
+		flashFramesLeft = lowQuality ? 3 : 4;
 
 		// Failsafe: ensure flash is always hidden, even if frame updates stall.
 		if (flashHideTimer) {

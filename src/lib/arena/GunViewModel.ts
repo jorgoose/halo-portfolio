@@ -52,18 +52,19 @@ export async function createGunViewModel(
 	const barrelTipLocal = new B.Vector3(0, 0.01, 0.47);
 
 	// --- Ammo Counter Screen ---
-	const ammoTex = new B.DynamicTexture('ammoTex', { width: 128, height: 64 }, scene, false);
+	const ammoTex = new B.DynamicTexture('ammoTex', { width: 256, height: 128 }, scene, false);
 	ammoTex.hasAlpha = true;
 
 	const ammoMat = new B.StandardMaterial('ammoScreenMat', scene);
 	ammoMat.emissiveTexture = ammoTex;
+	ammoMat.opacityTexture = ammoTex;
 	ammoMat.diffuseColor = new B.Color3(0, 0, 0);
 	ammoMat.specularColor = new B.Color3(0, 0, 0);
 	ammoMat.disableLighting = true;
 	ammoMat.backFaceCulling = false;
 
-	const ammoScreenHeight = 0.08;
-	const ammoScreenAngle = Math.PI / 5.0;
+	const ammoScreenHeight = 0.04;
+	const ammoScreenAngle = Math.PI / 7;
 	const ammoPlane = B.MeshBuilder.CreatePlane(
 		'ammoScreen',
 		{ width: 0.045, height: ammoScreenHeight },
@@ -74,8 +75,8 @@ export async function createGunViewModel(
 	const halfGrowth = (ammoScreenHeight - 0.022) / 2;
 	ammoPlane.position = new B.Vector3(
 		0.0,
-		0.32 - halfGrowth * Math.cos(ammoScreenAngle),
-		-0.21 + halfGrowth * Math.sin(ammoScreenAngle)
+		0.3 - halfGrowth * Math.cos(ammoScreenAngle),
+		-0.187 + halfGrowth * Math.sin(ammoScreenAngle)
 	);
 	ammoPlane.rotation = new B.Vector3(ammoScreenAngle, 0, 0);
 	ammoPlane.material = ammoMat;
@@ -85,16 +86,42 @@ export async function createGunViewModel(
 
 	function drawAmmoCount(count: number) {
 		const ctx = ammoTex.getContext() as unknown as CanvasRenderingContext2D;
-		ctx.clearRect(0, 0, 128, 64);
+		ctx.clearRect(0, 0, 256, 128);
 
-		// Transparent background
+		const text = String(count).padStart(2, '0');
+		const color = count <= 8 ? '#ff4422' : '#44ddff';
+		const glowColor = count <= 8 ? '#ff2200' : '#00aaff';
 
-		// Ammo number — cyan digital style
-		ctx.fillStyle = count <= 8 ? '#ff4422' : '#44ddff';
-		ctx.font = 'bold 48px monospace';
+		ctx.font = 'bold 100px monospace';
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
-		ctx.fillText(String(count).padStart(2, '0'), 64, 34);
+
+		// Outer glow pass — wide, soft bloom
+		ctx.save();
+		ctx.shadowColor = glowColor;
+		ctx.shadowBlur = 40;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
+		ctx.fillStyle = 'rgba(0,0,0,0)';
+		ctx.fillText(text, 128, 66);
+		ctx.fillText(text, 128, 66);
+		ctx.restore();
+
+		// Inner glow pass — tighter, brighter
+		ctx.save();
+		ctx.shadowColor = color;
+		ctx.shadowBlur = 16;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
+		ctx.fillStyle = color;
+		ctx.fillText(text, 128, 66);
+		ctx.restore();
+
+		// Bright core text on top
+		ctx.fillStyle = '#ffffff';
+		ctx.globalAlpha = 0.55;
+		ctx.fillText(text, 128, 66);
+		ctx.globalAlpha = 1.0;
 
 		ammoTex.update();
 	}

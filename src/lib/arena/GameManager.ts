@@ -53,7 +53,7 @@ export async function initGameManager(
 	};
 
 	// --- Engine & Scene ---
-	const engine = new B.Engine(canvas, true, { stencil: true });
+	const engine = new B.Engine(canvas, false, { stencil: true });
 	const scene = new B.Scene(engine);
 	scene.clearColor = new B.Color4(...FOG_COLOR, 1);
 
@@ -63,7 +63,7 @@ export async function initGameManager(
 	scene.fogColor = new B.Color3(...FOG_COLOR);
 
 	// Glow layer
-	const glowLayer = new B.GlowLayer('glow', scene, { blurKernelSize: 32 });
+	const glowLayer = new B.GlowLayer('glow', scene, { blurKernelSize: 16 });
 	glowLayer.intensity = 0.3;
 
 	// --- Lighting ---

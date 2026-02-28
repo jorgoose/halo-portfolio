@@ -22,8 +22,14 @@ export function createHudState(callback: HudCallback) {
 	}
 
 	function update(data: Partial<HudSnapshot>) {
-		Object.assign(snapshot, data);
-		emit();
+		let dirty = false;
+		for (const key in data) {
+			if ((snapshot as any)[key] !== (data as any)[key]) {
+				(snapshot as any)[key] = (data as any)[key];
+				dirty = true;
+			}
+		}
+		if (dirty) emit();
 	}
 
 	return { snapshot, update, emit };

@@ -200,9 +200,12 @@ export async function createGunViewModel(
 		root.rotation.x = restRotX + rotX;
 	}
 
+	const _barrelTip = new B.Vector3();
+
 	function getBarrelTip(): InstanceType<BabylonNamespace['Vector3']> {
 		const worldMatrix = root.getWorldMatrix();
-		return B.Vector3.TransformCoordinates(barrelTipLocal, worldMatrix);
+		B.Vector3.TransformCoordinatesToRef(barrelTipLocal, worldMatrix, _barrelTip);
+		return _barrelTip;
 	}
 
 	function reset() {

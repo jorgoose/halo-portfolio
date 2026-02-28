@@ -38,6 +38,7 @@ export function createEnemySystem(
 	const _toNav = new B.Vector3();
 	const _lookAt = new B.Vector3();
 	const _shootOrigin = new B.Vector3();
+	const _shootDir = new B.Vector3();
 	const _moveDir = new B.Vector3();
 
 	// --- Materials ---
@@ -222,8 +223,9 @@ export function createEnemySystem(
 						// Raycast from enemy to player to check for cover
 						_shootOrigin.copyFrom(enemyPos);
 						_shootOrigin.y += 0.8;
-						const shootDir = playerPos.subtract(_shootOrigin).normalize();
-						const ray = new B.Ray(_shootOrigin, shootDir, ENEMY_ATTACK_RANGE + 5);
+						playerPos.subtractToRef(_shootOrigin, _shootDir);
+						_shootDir.normalize();
+						const ray = new B.Ray(_shootOrigin, _shootDir, ENEMY_ATTACK_RANGE + 5);
 
 						const pick = scene.pickWithRay(ray, (mesh) => {
 							return mesh.isPickable && !mesh.metadata?.enemy && mesh.name !== 'floor';

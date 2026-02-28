@@ -62,7 +62,10 @@ export async function initGameManager(
 		window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const qualityParam =
 		typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('quality') : null;
-	let lowQualityMode = prefersReducedMotion || (hardwareThreads <= 8 && deviceMemoryGb <= 8);
+	const strictLowHardware = hardwareThreads <= 4 || deviceMemoryGb <= 4;
+	const moderateHardware = hardwareThreads <= 8 || deviceMemoryGb <= 8;
+	let lowQualityMode = prefersReducedMotion || strictLowHardware;
+	let mediumQualityMode = false;
 
 	// --- Engine & Scene ---
 	const engine = new B.Engine(canvas, false, { stencil: true });
@@ -77,30 +80,44 @@ export async function initGameManager(
 		!/(nvidia|geforce|rtx|radeon rx|arc)/.test(rendererText);
 	if (qualityParam === 'high') {
 		lowQualityMode = false;
+		mediumQualityMode = false;
+	} else if (qualityParam === 'medium') {
+		lowQualityMode = false;
+		mediumQualityMode = true;
 	} else if (qualityParam === 'low') {
 		lowQualityMode = true;
+		mediumQualityMode = false;
 	} else if (integratedRenderer) {
-		lowQualityMode = true;
+		// Most integrated GPUs run best in a "medium" profile rather than strict low.
+		mediumQualityMode = moderateHardware && !lowQualityMode;
+		lowQualityMode = strictLowHardware || prefersReducedMotion;
 	}
 
 	if (lowQualityMode) {
-		// Render at a lower internal resolution on low-power devices.
-		const scale = hardwareThreads <= 4 || deviceMemoryGb <= 4 ? 2.2 : 1.8;
+		// Keep low-end mode performant without making controls feel sluggish.
+		const scale = strictLowHardware ? 1.85 : 1.65;
 		engine.setHardwareScalingLevel(scale);
 		scene.performancePriority = BABYLON.ScenePerformancePriority.Aggressive;
+	} else if (mediumQualityMode) {
+		engine.setHardwareScalingLevel(1.3);
+		scene.performancePriority = BABYLON.ScenePerformancePriority.Intermediate;
 	}
 
 	// Fog
 	if (lowQualityMode) {
 		scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
+	} else if (mediumQualityMode) {
+		scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+		scene.fogDensity = FOG_DENSITY * 0.6;
+		scene.fogColor = new B.Color3(...FOG_COLOR);
 	} else {
 		scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
 		scene.fogDensity = FOG_DENSITY;
 		scene.fogColor = new B.Color3(...FOG_COLOR);
 	}
 
-	// Glow layer is expensive on integrated graphics, so skip in low quality mode.
-	const glowLayer = lowQualityMode
+	// Glow layer is expensive on integrated graphics, so skip in medium/low profiles.
+	const glowLayer = lowQualityMode || mediumQualityMode
 		? null
 		: new B.GlowLayer('glow', scene, { blurKernelSize: 16, mainTextureFixedSize: 256 });
 	if (glowLayer) {
@@ -257,14 +274,7 @@ export async function initGameManager(
 	});
 
 	// --- Render Loop ---
-	let lastFrameAt = performance.now();
-	const minFrameIntervalMs = lowQualityMode ? 1000 / 40 : 0;
 	engine.runRenderLoop(() => {
-		if (minFrameIntervalMs > 0) {
-			const now = performance.now();
-			if (now - lastFrameAt < minFrameIntervalMs) return;
-			lastFrameAt = now;
-		}
 		scene.render();
 	});
 

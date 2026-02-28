@@ -64,14 +64,18 @@ export async function createGunViewModel(
 
 	const ammoScreenHeight = 0.08;
 	const ammoScreenAngle = Math.PI / 5.0;
-	const ammoPlane = B.MeshBuilder.CreatePlane('ammoScreen', { width: 0.045, height: ammoScreenHeight }, scene);
+	const ammoPlane = B.MeshBuilder.CreatePlane(
+		'ammoScreen',
+		{ width: 0.045, height: ammoScreenHeight },
+		scene
+	);
 	ammoPlane.parent = root;
 	// Offset center so top edge stays anchored at (0, 0.325, -0.18)
 	const halfGrowth = (ammoScreenHeight - 0.022) / 2;
 	ammoPlane.position = new B.Vector3(
 		0.0,
-		0.425 - halfGrowth * Math.cos(ammoScreenAngle),
-		-0.18 + halfGrowth * Math.sin(ammoScreenAngle)
+		0.32 - halfGrowth * Math.cos(ammoScreenAngle),
+		-0.21 + halfGrowth * Math.sin(ammoScreenAngle)
 	);
 	ammoPlane.rotation = new B.Vector3(ammoScreenAngle, 0, 0);
 	ammoPlane.material = ammoMat;
@@ -83,9 +87,7 @@ export async function createGunViewModel(
 		const ctx = ammoTex.getContext() as unknown as CanvasRenderingContext2D;
 		ctx.clearRect(0, 0, 128, 64);
 
-		// Dark screen background
-		ctx.fillStyle = 'rgba(0, 8, 16, 0.9)';
-		ctx.fillRect(0, 0, 128, 64);
+		// Transparent background
 
 		// Ammo number — cyan digital style
 		ctx.fillStyle = count <= 8 ? '#ff4422' : '#44ddff';

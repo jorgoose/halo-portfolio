@@ -274,7 +274,12 @@ export async function initGameManager(
 	});
 
 	// --- Render Loop ---
+	let lastFrameAt = performance.now();
+	const minFrameIntervalMs = 1000 / 60;
 	engine.runRenderLoop(() => {
+		const now = performance.now();
+		if (now - lastFrameAt < minFrameIntervalMs) return;
+		lastFrameAt = now;
 		scene.render();
 	});
 

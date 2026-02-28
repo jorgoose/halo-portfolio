@@ -63,7 +63,7 @@ export async function createGunViewModel(
 	ammoMat.backFaceCulling = false;
 
 	const ammoScreenHeight = 0.15;
-	const ammoScreenAngle = Math.PI / 3.0;
+	const ammoScreenAngle = Math.PI / 5.0;
 	const ammoPlane = B.MeshBuilder.CreatePlane('ammoScreen', { width: 0.045, height: ammoScreenHeight }, scene);
 	ammoPlane.parent = root;
 	// Offset center so top edge stays anchored at (0, 0.325, -0.18)

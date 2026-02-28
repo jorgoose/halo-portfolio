@@ -62,7 +62,7 @@ export async function createGunViewModel(
 	ammoMat.disableLighting = true;
 	ammoMat.backFaceCulling = false;
 
-	const ammoScreenHeight = 0.15;
+	const ammoScreenHeight = 0.08;
 	const ammoScreenAngle = Math.PI / 5.0;
 	const ammoPlane = B.MeshBuilder.CreatePlane('ammoScreen', { width: 0.045, height: ammoScreenHeight }, scene);
 	ammoPlane.parent = root;

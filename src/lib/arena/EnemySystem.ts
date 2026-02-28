@@ -40,6 +40,7 @@ export function createEnemySystem(
 	const _shootOrigin = new B.Vector3();
 	const _shootDir = new B.Vector3();
 	const _moveDir = new B.Vector3();
+	const _shootRay = new B.Ray(_shootOrigin, _shootDir, ENEMY_ATTACK_RANGE + 5);
 
 	// --- Materials ---
 	const bodyMat = new B.StandardMaterial('enemyBodyMat', scene);
@@ -225,9 +226,8 @@ export function createEnemySystem(
 						_shootOrigin.y += 0.8;
 						playerPos.subtractToRef(_shootOrigin, _shootDir);
 						_shootDir.normalize();
-						const ray = new B.Ray(_shootOrigin, _shootDir, ENEMY_ATTACK_RANGE + 5);
-
-						const pick = scene.pickWithRay(ray, (mesh) => {
+						_shootRay.length = ENEMY_ATTACK_RANGE + 5;
+						const pick = scene.pickWithRay(_shootRay, (mesh) => {
 							return mesh.isPickable && !mesh.metadata?.enemy && mesh.name !== 'floor';
 						});
 
@@ -271,7 +271,7 @@ export function createEnemySystem(
 	}
 
 	function killEnemy(enemy: EnemyData) {
-		vfx.deathEffect(enemy.mesh.position.clone());
+		vfx.deathEffect(enemy.mesh.position);
 		enemy.state = EnemyState.DEAD;
 		enemy.respawnTimer = ENEMY_RESPAWN_TIME;
 		enemy.mesh.setEnabled(false);

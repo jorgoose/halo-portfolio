@@ -18,12 +18,19 @@ export interface VFXManager {
 	dispose: () => void;
 }
 
+interface VFXOptions {
+	lowQuality?: boolean;
+}
+
 export function createVFXManager(
 	B: BabylonNamespace,
-	scene: InstanceType<BabylonNamespace['Scene']>
+	scene: InstanceType<BabylonNamespace['Scene']>,
+	options: VFXOptions = {}
 ): VFXManager {
+	const lowQuality = options.lowQuality ?? false;
 	const activeTimers = new Set<ReturnType<typeof setTimeout>>();
 	const activeParticles = new Set<InstanceType<BabylonNamespace['ParticleSystem']>>();
+	let lastImpactAt = 0;
 
 	/** Schedule a timeout that is automatically tracked for cleanup. */
 	function tracked(fn: () => void, ms: number) {
@@ -79,7 +86,11 @@ export function createVFXManager(
 	shieldMat.alpha = 0.25;
 	shieldMat.backFaceCulling = false;
 
-	const shieldMesh = B.MeshBuilder.CreateSphere('shieldFlare', { diameter: 2.5, segments: 8 }, scene);
+	const shieldMesh = B.MeshBuilder.CreateSphere(
+		'shieldFlare',
+		{ diameter: 2.5, segments: lowQuality ? 5 : 8 },
+		scene
+	);
 	shieldMesh.material = shieldMat;
 	shieldMesh.isPickable = false;
 	shieldMesh.setEnabled(false);
@@ -87,7 +98,7 @@ export function createVFXManager(
 	// --- Effect state (driven by single tick) ---
 	let flashActive = false;
 	let flashElapsed = 0;
-	const flashDuration = MUZZLE_FLASH_DURATION + 0.02;
+	const flashDuration = (MUZZLE_FLASH_DURATION + 0.02) * (lowQuality ? 0.75 : 1);
 
 	let shieldActive = false;
 	let shieldElapsed = 0;
@@ -139,17 +150,21 @@ export function createVFXManager(
 	}
 
 	function impactSpark(pos: InstanceType<BabylonNamespace['Vector3']>) {
-		const ps = new B.ParticleSystem('impactSpark', 20, scene);
+		const now = performance.now();
+		if (lowQuality && now - lastImpactAt < 45) return;
+		lastImpactAt = now;
+
+		const ps = new B.ParticleSystem('impactSpark', lowQuality ? 10 : 20, scene);
 		ps.particleTexture = particleTex;
 		ps.emitter = pos.clone();
 
 		ps.minLifeTime = 0.05;
-		ps.maxLifeTime = 0.2;
+		ps.maxLifeTime = lowQuality ? 0.16 : 0.2;
 		ps.minSize = 0.05;
-		ps.maxSize = 0.15;
-		ps.emitRate = 80;
+		ps.maxSize = lowQuality ? 0.12 : 0.15;
+		ps.emitRate = lowQuality ? 45 : 80;
 		ps.minEmitPower = 2;
-		ps.maxEmitPower = 5;
+		ps.maxEmitPower = lowQuality ? 4 : 5;
 
 		ps.direction1 = new B.Vector3(...SPARK_DIR1);
 		ps.direction2 = new B.Vector3(...SPARK_DIR2);
@@ -168,7 +183,7 @@ export function createVFXManager(
 				ps.dispose();
 				activeParticles.delete(ps);
 			}, 150);
-		}, 80);
+		}, lowQuality ? 60 : 80);
 	}
 
 	function shieldFlare(camera: InstanceType<BabylonNamespace['FreeCamera']>) {
@@ -195,17 +210,17 @@ export function createVFXManager(
 	}
 
 	function deathEffect(pos: InstanceType<BabylonNamespace['Vector3']>) {
-		const ps = new B.ParticleSystem('deathEffect', 30, scene);
+		const ps = new B.ParticleSystem('deathEffect', lowQuality ? 16 : 30, scene);
 		ps.particleTexture = particleTex;
 		ps.emitter = pos.clone();
 
-		ps.minLifeTime = 0.3;
-		ps.maxLifeTime = 0.8;
+		ps.minLifeTime = lowQuality ? 0.24 : 0.3;
+		ps.maxLifeTime = lowQuality ? 0.6 : 0.8;
 		ps.minSize = 0.1;
-		ps.maxSize = 0.3;
-		ps.emitRate = 300;
+		ps.maxSize = lowQuality ? 0.22 : 0.3;
+		ps.emitRate = lowQuality ? 180 : 300;
 		ps.minEmitPower = 3;
-		ps.maxEmitPower = 8;
+		ps.maxEmitPower = lowQuality ? 6 : 8;
 
 		ps.direction1 = new B.Vector3(...DEATH_DIR1);
 		ps.direction2 = new B.Vector3(...DEATH_DIR2);
@@ -224,7 +239,7 @@ export function createVFXManager(
 				ps.dispose();
 				activeParticles.delete(ps);
 			}, 500);
-		}, 200);
+		}, lowQuality ? 150 : 200);
 	}
 
 	function dispose() {

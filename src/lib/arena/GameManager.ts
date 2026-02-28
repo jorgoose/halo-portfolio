@@ -52,19 +52,39 @@ export async function initGameManager(
 		PointLight: BABYLON.PointLight
 	};
 
+	const nav = typeof navigator !== 'undefined' ? navigator : null;
+	const navWithDeviceMemory = nav as (Navigator & { deviceMemory?: number }) | null;
+	const hardwareThreads = nav?.hardwareConcurrency ?? 8;
+	const deviceMemoryGb = navWithDeviceMemory?.deviceMemory ?? 8;
+	const prefersReducedMotion =
+		typeof window !== 'undefined' &&
+		typeof window.matchMedia === 'function' &&
+		window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const lowQualityMode = prefersReducedMotion || hardwareThreads <= 4 || deviceMemoryGb <= 4;
+
 	// --- Engine & Scene ---
 	const engine = new B.Engine(canvas, false, { stencil: true });
 	const scene = new B.Scene(engine);
 	scene.clearColor = new B.Color4(...FOG_COLOR, 1);
+	scene.skipPointerMovePicking = true;
+
+	if (lowQualityMode) {
+		// Render at a lower internal resolution on low-power devices.
+		engine.setHardwareScalingLevel(1.6);
+	}
 
 	// Fog
 	scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
 	scene.fogDensity = FOG_DENSITY;
 	scene.fogColor = new B.Color3(...FOG_COLOR);
 
-	// Glow layer
-	const glowLayer = new B.GlowLayer('glow', scene, { blurKernelSize: 16, mainTextureFixedSize: 256 });
-	glowLayer.intensity = 0.3;
+	// Glow layer is expensive on integrated graphics, so skip in low quality mode.
+	const glowLayer = lowQualityMode
+		? null
+		: new B.GlowLayer('glow', scene, { blurKernelSize: 16, mainTextureFixedSize: 256 });
+	if (glowLayer) {
+		glowLayer.intensity = 0.3;
+	}
 
 	// --- Lighting ---
 	const hemiLight = new B.HemisphericLight('hemiLight', new B.Vector3(0, 1, 0), scene);
@@ -91,7 +111,7 @@ export async function initGameManager(
 
 	// --- Systems ---
 	let healthShield: HealthShieldSystem = createHealthShieldSystem();
-	const vfxManager: VFXManager = createVFXManager(B, scene);
+	const vfxManager: VFXManager = createVFXManager(B, scene, { lowQuality: lowQualityMode });
 	let gunViewModel: GunViewModel = await createGunViewModel(B, scene, player.camera);
 	let weapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, gunViewModel);
 	let enemySystem: EnemySystem = createEnemySystem(B, scene, spawnPoints, vfxManager);
@@ -168,7 +188,8 @@ export async function initGameManager(
 	scene.registerBeforeRender(() => {
 		if (gameOver || paused) return;
 
-		const dt = engine.getDeltaTime() / 1000;
+		// Clamp dt to avoid huge simulation steps when the browser stalls.
+		const dt = Math.min(engine.getDeltaTime(), 50) / 1000;
 
 		healthShield.update(dt);
 		weapon.update(dt);
@@ -211,7 +232,16 @@ export async function initGameManager(
 	});
 
 	// --- Render Loop ---
-	engine.runRenderLoop(() => scene.render());
+	let lastFrameAt = performance.now();
+	const minFrameIntervalMs = lowQualityMode ? 1000 / 45 : 0;
+	engine.runRenderLoop(() => {
+		if (minFrameIntervalMs > 0) {
+			const now = performance.now();
+			if (now - lastFrameAt < minFrameIntervalMs) return;
+			lastFrameAt = now;
+		}
+		scene.render();
+	});
 
 	const onResize = () => engine.resize();
 	window.addEventListener('resize', onResize);
@@ -251,11 +281,13 @@ export async function initGameManager(
 		disposed = true;
 		document.removeEventListener('pointerlockchange', onPointerLockChange);
 		window.removeEventListener('resize', onResize);
+		hud.dispose?.();
 		player.dispose();
 		gunViewModel.dispose();
 		enemySystem.dispose();
 		vfxManager.dispose();
 		weapon.dispose();
+		glowLayer?.dispose();
 		scene.dispose();
 		engine.dispose();
 	}

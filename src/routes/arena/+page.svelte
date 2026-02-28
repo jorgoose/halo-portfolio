@@ -6,6 +6,7 @@
   let engineLoading = false;
   let engineReady = false;
   let canvas: HTMLCanvasElement;
+  let backgroundVideo: HTMLVideoElement | null = null;
   let gameManager: GameManager | null = null;
 
   let hud: HudSnapshot = {
@@ -27,6 +28,11 @@
     hud = snapshot;
   }
 
+  function pauseBackgroundVideo() {
+    if (!backgroundVideo) return;
+    backgroundVideo.pause();
+  }
+
   async function engage() {
     if (engineLoading || engineReady) return;
     engineLoading = true;
@@ -37,6 +43,7 @@
 
       gameManager = await initGameManager(canvas, onHudUpdate);
       engineReady = true;
+      pauseBackgroundVideo();
     } catch (err) {
       console.error('Arena failed to load:', err);
     } finally {
@@ -57,6 +64,7 @@
   }
 
   onDestroy(() => {
+    pauseBackgroundVideo();
     if (gameManager) {
       gameManager.dispose();
       gameManager = null;
@@ -74,7 +82,16 @@
 </svelte:head>
 
 <div class="arena-bg">
-  <video autoplay loop muted playsinline preload="metadata" class="background-video">
+  <video
+    bind:this={backgroundVideo}
+    autoplay
+    loop
+    muted
+    playsinline
+    preload="metadata"
+    class="background-video"
+    class:inactive={engineReady}
+  >
     <source src="/menu_background_vp9.webm" type="video/webm" />
     Your browser does not support the video tag.
   </video>
@@ -260,6 +277,10 @@ html, body {
   object-fit: cover;
   z-index: 0;
   pointer-events: none;
+}
+
+.background-video.inactive {
+  display: none;
 }
 
 .launch-screen {

@@ -544,8 +544,8 @@ export function createArenaMap(
 	// ============================================================
 	const spawnPoints = {
 		player: [
-			{ x: 0, y: 0, z: -52 },
-			{ x: 0, y: 0, z: 52 }
+			{ x: 0, y: 1.6, z: -52 },
+			{ x: 0, y: 1.6, z: 52 }
 		],
 		enemy: [
 			{ x: -29.5, y: 0.5, z: -27 }, // West flank south

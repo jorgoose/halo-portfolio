@@ -10,9 +10,10 @@ import {
 	CEILING_HEIGHT
 } from './constants';
 
-// Camera rests at Y=0 on the floor — the ellipsoid (offset 1.0, height 1.0)
-// extends upward from camera.y, so camera.y=0 means feet on the ground.
-const GROUND_Y = 0;
+// With the ellipsoid (offset 1.0, height 1.0), the collision body extends
+// from camera.y to camera.y+2.0. Eye level should be near the top of the
+// body. GROUND_Y is the camera Y when standing on the floor (Y=0).
+const GROUND_Y = 1.6;
 
 export interface PlayerController {
 	camera: InstanceType<BabylonNamespace['FreeCamera']>;

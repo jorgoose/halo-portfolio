@@ -210,35 +210,29 @@ export function createArenaMap(
 	addDoorframe(0, 44, false);
 
 	// --- SOUTH CORRIDOR SECTION (Z=-44 to -10) ---
-	// Main corridor east wall (X=+4, Z=-44 to -10, with gaps for side rooms)
-	// Segment: Z=-44 to -34
-	addWall(4, -39, T, 10);
-	// Gap at Z=-34 (doorway into barracks)
+	// Main corridor east wall (X=+4, Z=-44 to -10, with 4-wide gap at Z=-34)
+	addWall(4, -40, T, 8);    // Z=-44 to -36
 	addDoorframe(4, -34, true);
-	// Segment: Z=-34 to -22 (barracks doorway already at -34)
-	addWall(4, -28, T, 12);
-	// Gap at Z=-22 (doorway back from barracks)
-	// Actually let's simplify: one doorway per side room
-	// Segment: Z=-22 to -10
-	addWall(4, -16, T, 12);
+	addWall(4, -27, T, 10);   // Z=-32 to -22
+	addWall(4, -16, T, 12);   // Z=-22 to -10
 
 	// Main corridor west wall (X=-4, Z=-44 to -10)
-	addWall(-4, -39, T, 10);
+	addWall(-4, -40, T, 8);
 	addDoorframe(-4, -34, true);
-	addWall(-4, -28, T, 12);
+	addWall(-4, -27, T, 10);
 	addWall(-4, -16, T, 12);
 
 	// West flank outer wall (already perimeter at X=-40)
-	// West flank inner wall (X=-19, Z=-44 to -10, with doorway gaps into armory)
-	addWall(-19, -39, T, 10);
+	// West flank inner wall (X=-19, Z=-44 to -10, with doorway gap at Z=-34)
+	addWall(-19, -40, T, 8);
 	addDoorframe(-19, -34, true);
-	addWall(-19, -28, T, 12);
+	addWall(-19, -27, T, 10);
 	addWall(-19, -16, T, 12);
 
 	// East flank inner wall (X=+19, Z=-44 to -10)
-	addWall(19, -39, T, 10);
+	addWall(19, -40, T, 8);
 	addDoorframe(19, -34, true);
-	addWall(19, -28, T, 12);
+	addWall(19, -27, T, 10);
 	addWall(19, -16, T, 12);
 
 	// Armory room (west side room, X=-19 to -4, Z=-34 to -22)
@@ -253,41 +247,40 @@ export function createArenaMap(
 
 	// Flank corridor walls (connect bases to hub through side paths)
 	// West flank: X=-40 to -19
-	// Cross walls at Z=-44 (south entry to west flank)
-	// Leave gap for doorway at X=-29.5 (center of flank)
-	addWall(-24, -44, 10, T); // X=-19 to -29
+	// Cross walls at Z=-44 (south entry to west flank, 4-wide gap at X=-29.5)
+	addWall(-23.25, -44, 8.5, T); // X=-19 to -27.5
 	addDoorframe(-29.5, -44, false);
-	addWall(-35, -44, 10, T); // X=-30 to -40
+	addWall(-35.75, -44, 8.5, T); // X=-31.5 to -40
 
-	// East flank at Z=-44
-	addWall(24, -44, 10, T);
+	// East flank at Z=-44 (4-wide gap at X=+29.5)
+	addWall(23.25, -44, 8.5, T);  // X=19 to 27.5
 	addDoorframe(29.5, -44, false);
-	addWall(35, -44, 10, T);
+	addWall(35.75, -44, 8.5, T);  // X=31.5 to 40
 
 	// --- NORTH CORRIDOR SECTION (Z=+10 to +44) — mirror of south ---
-	// Main corridor east wall
-	addWall(4, 39, T, 10);
+	// Main corridor east wall (4-wide gap at Z=+34)
+	addWall(4, 16, T, 12);    // Z=10 to 22
+	addWall(4, 27, T, 10);    // Z=22 to 32
 	addDoorframe(4, 34, true);
-	addWall(4, 28, T, 12);
-	addWall(4, 16, T, 12);
+	addWall(4, 40, T, 8);     // Z=36 to 44
 
 	// Main corridor west wall
-	addWall(-4, 39, T, 10);
-	addDoorframe(-4, 34, true);
-	addWall(-4, 28, T, 12);
 	addWall(-4, 16, T, 12);
+	addWall(-4, 27, T, 10);
+	addDoorframe(-4, 34, true);
+	addWall(-4, 40, T, 8);
 
 	// West flank inner wall
-	addWall(-19, 39, T, 10);
-	addDoorframe(-19, 34, true);
-	addWall(-19, 28, T, 12);
 	addWall(-19, 16, T, 12);
+	addWall(-19, 27, T, 10);
+	addDoorframe(-19, 34, true);
+	addWall(-19, 40, T, 8);
 
 	// East flank inner wall
-	addWall(19, 39, T, 10);
-	addDoorframe(19, 34, true);
-	addWall(19, 28, T, 12);
 	addWall(19, 16, T, 12);
+	addWall(19, 27, T, 10);
+	addDoorframe(19, 34, true);
+	addWall(19, 40, T, 8);
 
 	// Storage room (west, Z=+22 to +34)
 	addWall(-11.5, 22, 15, T);
@@ -297,25 +290,25 @@ export function createArenaMap(
 	addWall(11.5, 22, 15, T);
 	addWall(11.5, 34, 15, T);
 
-	// Flank cross walls at Z=+44
-	addWall(-24, 44, 10, T);
+	// Flank cross walls at Z=+44 (4-wide gaps at X=±29.5)
+	addWall(-23.25, 44, 8.5, T);
 	addDoorframe(-29.5, 44, false);
-	addWall(-35, 44, 10, T);
+	addWall(-35.75, 44, 8.5, T);
 
-	addWall(24, 44, 10, T);
+	addWall(23.25, 44, 8.5, T);
 	addDoorframe(29.5, 44, false);
-	addWall(35, 44, 10, T);
+	addWall(35.75, 44, 8.5, T);
 
 	// --- CENTRAL HUB (Z=-10 to +10) ---
-	// Hub east wall (X=+15) with doorway at Z=0
-	addWall(15, -5, T, 10);
-	addWall(15, 5, T, 10);
+	// Hub east wall (X=+15) with 4-wide doorway gap at Z=0
+	addWall(15, -6, T, 8);    // Z=-10 to -2
 	addDoorframe(15, 0, true);
+	addWall(15, 6, T, 8);     // Z=+2 to +10
 
 	// Hub west wall (X=-15)
-	addWall(-15, -5, T, 10);
-	addWall(-15, 5, T, 10);
+	addWall(-15, -6, T, 8);
 	addDoorframe(-15, 0, true);
+	addWall(-15, 6, T, 8);
 
 	// Hub north wall (Z=+10) — doorways at main corridor (X=0) and flanks
 	// Main corridor doorway
@@ -329,30 +322,29 @@ export function createArenaMap(
 	addDoorframe(0, -10, false);
 
 	// Flank-to-hub connections: walls from X=-40/-19 to X=-15 at Z=-10/+10
-	// West side Z=-10 wall
-	addWall(-17, -10, 4, T); // X=-15 to -19
-	// West outer flank wall at Z=-10 (X=-19 to -40, with doorway)
-	addWall(-25, -10, 12, T);
+	// West side Z=-10 wall (4-wide gap at X=-31)
+	addWall(-17, -10, 4, T);      // X=-19 to -15
+	addWall(-24, -10, 10, T);     // X=-29 to -19
 	addDoorframe(-31, -10, false);
-	addWall(-37, -10, 6, T);
+	addWall(-36.5, -10, 7, T);    // X=-40 to -33
 
 	// West side Z=+10 wall
 	addWall(-17, 10, 4, T);
-	addWall(-25, 10, 12, T);
+	addWall(-24, 10, 10, T);
 	addDoorframe(-31, 10, false);
-	addWall(-37, 10, 6, T);
+	addWall(-36.5, 10, 7, T);
 
-	// East side Z=-10
+	// East side Z=-10 (4-wide gap at X=+31)
 	addWall(17, -10, 4, T);
-	addWall(25, -10, 12, T);
+	addWall(24, -10, 10, T);      // X=19 to 29
 	addDoorframe(31, -10, false);
-	addWall(37, -10, 6, T);
+	addWall(36.5, -10, 7, T);     // X=33 to 40
 
 	// East side Z=+10
 	addWall(17, 10, 4, T);
-	addWall(25, 10, 12, T);
+	addWall(24, 10, 10, T);
 	addDoorframe(31, 10, false);
-	addWall(37, 10, 6, T);
+	addWall(36.5, 10, 7, T);
 
 	// ============================================================
 	// 5a. HUB DIVIDER WALL (breaks north-south line of sight)

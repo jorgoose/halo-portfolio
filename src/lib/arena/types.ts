@@ -60,7 +60,6 @@ export interface GameSystems {
 }
 
 export interface BabylonNamespace {
-	Engine: typeof import('@babylonjs/core').Engine;
 	Scene: typeof import('@babylonjs/core').Scene;
 	FreeCamera: typeof import('@babylonjs/core').FreeCamera;
 	Vector3: typeof import('@babylonjs/core').Vector3;

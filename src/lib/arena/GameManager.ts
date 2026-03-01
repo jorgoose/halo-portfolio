@@ -29,7 +29,6 @@ export async function initGameManager(
 	const BABYLON = await import('@babylonjs/core');
 
 	const B: BabylonNamespace = {
-		Engine: BABYLON.Engine,
 		Scene: BABYLON.Scene,
 		FreeCamera: BABYLON.FreeCamera,
 		Vector3: BABYLON.Vector3,
@@ -56,7 +55,10 @@ export async function initGameManager(
 	const enemiesEnabled = enemiesParam === 'on';
 
 	// --- Engine & Scene ---
-	const engine = new B.Engine(canvas, false, { stencil: true });
+	const engine = await BABYLON.EngineFactory.CreateAsync(canvas, {
+		stencil: true,
+		antialias: false
+	});
 	const scene = new B.Scene(engine);
 	scene.clearColor = new B.Color4(...FOG_COLOR, 1);
 	scene.skipPointerMovePicking = true;

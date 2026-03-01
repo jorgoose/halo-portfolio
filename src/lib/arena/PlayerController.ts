@@ -84,11 +84,9 @@ export function createPlayerController(
 	// Max camera Y: ceiling minus ellipsoid top (ellipsoid extends 1.0 above offset center)
 	const maxCamY = CEILING_HEIGHT - COLLISION_ELLIPSOID.y * 2 - 0.05;
 
-	const jumpFn = () => {
-		// Prevent Babylon's built-in movement from adding Y drift
-		// (cameraDirection.y accumulates from look angle + inertia while moving)
-		camera.cameraDirection.y = 0;
+	let targetY = spawnPos.y;
 
+	const jumpFn = () => {
 		if (jumpRequested && grounded) {
 			yVel = JUMP_VELOCITY;
 			grounded = false;
@@ -96,30 +94,34 @@ export function createPlayerController(
 		}
 
 		if (!grounded) {
-			// Apply gravity acceleration
 			yVel += GRAVITY_ACCEL;
+			targetY += yVel;
 
-			// Move camera vertically
-			camera.position.y += yVel;
-
-			// Ceiling clamp
-			if (camera.position.y > maxCamY) {
-				camera.position.y = maxCamY;
+			if (targetY > maxCamY) {
+				targetY = maxCamY;
 				yVel = 0;
 			}
 
-			// Ground clamp
-			if (camera.position.y <= GROUND_Y) {
-				camera.position.y = GROUND_Y;
+			if (targetY <= GROUND_Y) {
+				targetY = GROUND_Y;
 				yVel = 0;
 				grounded = true;
 			}
 		} else {
-			// Keep player pinned to ground (replaces applyGravity)
-			camera.position.y = GROUND_Y;
+			targetY = GROUND_Y;
 		}
+
+		camera.position.y = targetY;
 	};
 	scene.registerBeforeRender(jumpFn);
+
+	// Runs AFTER Babylon's _checkInputs applies cameraDirection to position.
+	// WASD movement while looking up/down adds a Y component — we squash it
+	// and force position.y back to our physics-calculated targetY.
+	const postInputObserver = camera.onAfterCheckInputsObservable.add(() => {
+		camera.cameraDirection.y = 0;
+		camera.position.y = targetY;
+	});
 
 	const _forwardRay = new B.Ray(new B.Vector3(), new B.Vector3(), 100);
 	function getForwardRay() {
@@ -135,6 +137,7 @@ export function createPlayerController(
 		scene.unregisterBeforeRender(clampFn);
 		scene.unregisterBeforeRender(jumpFn);
 		if (jumpObserver) scene.onKeyboardObservable.remove(jumpObserver);
+		if (postInputObserver) camera.onAfterCheckInputsObservable.remove(postInputObserver);
 		camera.detachControl();
 		camera.dispose();
 	}

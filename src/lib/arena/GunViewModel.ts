@@ -126,6 +126,7 @@ export async function createGunViewModel(
 
 	// --- Animation State ---
 	let recoilTime = -1;
+	let recoilDirX = 1; // alternates left/right each shot
 	let reloadTime = -1;
 	let idlePhase = 0;
 
@@ -134,6 +135,8 @@ export async function createGunViewModel(
 
 	function fireRecoil() {
 		recoilTime = 0;
+		// Alternate horizontal direction with slight randomness
+		recoilDirX = -recoilDirX * (0.8 + Math.random() * 0.4);
 	}
 
 	function reloadAnim() {
@@ -146,20 +149,27 @@ export async function createGunViewModel(
 		const bobX = Math.sin(idlePhase) * 0.003;
 		const bobY = Math.sin(idlePhase * 1.3) * 0.004;
 
+		let offsetX = 0;
 		let offsetZ = 0;
 		let rotX = 0;
+		let rotY = 0;
 
-		// Recoil animation (kick back 0.04s, return 0.12s)
+		// Recoil animation — horizontal shake with minor vertical kick
+		// Kick phase 0.02s, return phase 0.05s (total 0.07s, fits within fire rate)
 		if (recoilTime >= 0) {
 			recoilTime += dt;
-			if (recoilTime < 0.04) {
-				const t = recoilTime / 0.04;
-				offsetZ = -0.06 * t;
-				rotX = -0.08 * t;
-			} else if (recoilTime < 0.16) {
-				const t = (recoilTime - 0.04) / 0.12;
-				offsetZ = -0.06 * (1 - t);
-				rotX = -0.08 * (1 - t);
+			if (recoilTime < 0.02) {
+				const t = recoilTime / 0.02;
+				offsetX = recoilDirX * 0.008 * t;
+				offsetZ = -0.018 * t;
+				rotX = -0.02 * t;
+				rotY = recoilDirX * 0.035 * t;
+			} else if (recoilTime < 0.07) {
+				const t = (recoilTime - 0.02) / 0.05;
+				offsetX = recoilDirX * 0.008 * (1 - t);
+				offsetZ = -0.018 * (1 - t);
+				rotX = -0.02 * (1 - t);
+				rotY = recoilDirX * 0.035 * (1 - t);
 			} else {
 				recoilTime = -1;
 			}
@@ -182,10 +192,11 @@ export async function createGunViewModel(
 			}
 		}
 
-		root.position.x = restPos.x + bobX;
+		root.position.x = restPos.x + bobX + offsetX;
 		root.position.y = restPos.y + bobY;
 		root.position.z = restPos.z + offsetZ;
 		root.rotation.x = restRotX + rotX;
+		root.rotation.y = rotY;
 	}
 
 	const _barrelTip = new B.Vector3();

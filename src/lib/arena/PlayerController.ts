@@ -2,13 +2,13 @@ import type { BabylonNamespace } from './types';
 import {
 	PLAYER_SPEED,
 	MOUSE_SENSITIVITY,
-	GRAVITY,
+	GRAVITY_ACCEL,
 	COLLISION_ELLIPSOID,
 	PLAYER_HEIGHT,
 	NEAR_CLIP,
 	VERTICAL_LOOK_LIMIT,
-	JUMP_IMPULSE,
-	JUMP_DECAY
+	JUMP_VELOCITY,
+	CEILING_HEIGHT
 } from './constants';
 
 export interface PlayerController {
@@ -36,14 +36,12 @@ export function createPlayerController(
 	camera.speed = PLAYER_SPEED;
 	camera.angularSensibility = MOUSE_SENSITIVITY;
 
-	// Collisions
+	// Collisions (horizontal only — we handle vertical ourselves)
 	camera.checkCollisions = true;
-	camera.applyGravity = true;
+	camera.applyGravity = false;
 	camera.ellipsoid = new B.Vector3(COLLISION_ELLIPSOID.x, COLLISION_ELLIPSOID.y, COLLISION_ELLIPSOID.z);
 	camera.ellipsoidOffset = new B.Vector3(0, COLLISION_ELLIPSOID.y, 0);
 
-	// Gravity
-	scene.gravity = new B.Vector3(0, GRAVITY, 0);
 	scene.collisionsEnabled = true;
 
 	camera.attachControl(canvas, true);
@@ -64,30 +62,52 @@ export function createPlayerController(
 	};
 	scene.registerBeforeRender(clampFn);
 
-	// Jump
-	let jumpVelocity = 0;
-	let jumpPressed = false;
+	// --- Jump: direct position control ---
+	let yVel = 0;
+	let grounded = true;
+	let jumpRequested = false;
 
+	// Only trigger jump on key DOWN, not while held
 	const jumpObserver = scene.onKeyboardObservable.add((kbInfo) => {
 		if (kbInfo.type === B.KeyboardEventTypes.KEYDOWN && kbInfo.event.code === 'Space') {
-			jumpPressed = true;
-		}
-		if (kbInfo.type === B.KeyboardEventTypes.KEYUP && kbInfo.event.code === 'Space') {
-			jumpPressed = false;
+			if (grounded) {
+				jumpRequested = true;
+			}
 		}
 	});
 
-	const jumpFn = () => {
-		const grounded = camera.position.y <= PLAYER_HEIGHT + 0.15;
+	// Max camera Y: ceiling minus ellipsoid top (ellipsoid extends 1.0 above offset center)
+	const maxCamY = CEILING_HEIGHT - COLLISION_ELLIPSOID.y * 2 - 0.05;
 
-		if (jumpPressed && grounded && jumpVelocity <= 0) {
-			jumpVelocity = JUMP_IMPULSE;
+	const jumpFn = () => {
+		if (jumpRequested && grounded) {
+			yVel = JUMP_VELOCITY;
+			grounded = false;
+			jumpRequested = false;
 		}
 
-		if (jumpVelocity > 0) {
-			camera.cameraDirection.y += jumpVelocity;
-			jumpVelocity -= JUMP_DECAY;
-			if (jumpVelocity < 0) jumpVelocity = 0;
+		if (!grounded) {
+			// Apply gravity acceleration
+			yVel += GRAVITY_ACCEL;
+
+			// Move camera vertically
+			camera.position.y += yVel;
+
+			// Ceiling clamp
+			if (camera.position.y > maxCamY) {
+				camera.position.y = maxCamY;
+				yVel = 0;
+			}
+
+			// Ground clamp
+			if (camera.position.y <= PLAYER_HEIGHT) {
+				camera.position.y = PLAYER_HEIGHT;
+				yVel = 0;
+				grounded = true;
+			}
+		} else {
+			// Keep player pinned to ground (replaces applyGravity)
+			camera.position.y = PLAYER_HEIGHT;
 		}
 	};
 	scene.registerBeforeRender(jumpFn);

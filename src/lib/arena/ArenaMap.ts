@@ -355,6 +355,12 @@ export function createArenaMap(
 	addWall(37, 10, 6, T);
 
 	// ============================================================
+	// 5a. HUB DIVIDER WALL (breaks north-south line of sight)
+	// ============================================================
+	// East-west wall at Z=0, leaving gaps past the pillars for flanking
+	addWall(0, 0, 14, T);
+
+	// ============================================================
 	// 5. HUB PILLARS (4 structural columns)
 	// ============================================================
 	const pillarPositions: [number, number][] = [[-10, -6], [10, -6], [-10, 6], [10, 6]];

@@ -15,6 +15,9 @@ import {
 const GROUND_Y = 1.45;
 
 // Fraction of ground speed available for mid-air directional nudges
+// Fraction of ground speed carried as horizontal momentum during a jump
+const AIR_MOMENTUM = 0.5;
+// Fraction of ground speed available for mid-air directional nudges
 const AIR_CONTROL = 0.10;
 
 export interface PlayerController {
@@ -128,7 +131,7 @@ export function createPlayerController(
 			airDirZ = dz;
 		} else {
 			// --- Air movement: momentum + slight nudge ---
-			_moveVec.set(airDirX * speed, 0, airDirZ * speed);
+			_moveVec.set(airDirX * speed * AIR_MOMENTUM, 0, airDirZ * speed * AIR_MOMENTUM);
 
 			// Small air control for minor corrections
 			const [dx, dz] = wasdDir();

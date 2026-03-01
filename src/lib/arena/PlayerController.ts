@@ -40,11 +40,12 @@ export function createPlayerController(
 	camera.speed = PLAYER_SPEED;
 	camera.angularSensibility = MOUSE_SENSITIVITY;
 
-	// Collisions (horizontal only — we handle vertical ourselves)
+	// Collisions — ellipsoid covers feet (Y=0) to head (Y=2.0)
+	// Center at camera.y + offset = 1.45 + (-0.45) = 1.0, extends ±1.0
 	camera.checkCollisions = true;
 	camera.applyGravity = false;
 	camera.ellipsoid = new B.Vector3(COLLISION_ELLIPSOID.x, COLLISION_ELLIPSOID.y, COLLISION_ELLIPSOID.z);
-	camera.ellipsoidOffset = new B.Vector3(0, COLLISION_ELLIPSOID.y, 0);
+	camera.ellipsoidOffset = new B.Vector3(0, -(GROUND_Y - COLLISION_ELLIPSOID.y), 0);
 
 	scene.collisionsEnabled = true;
 

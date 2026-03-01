@@ -99,13 +99,14 @@ export function createArenaMap(
 		const dw = DOOR_WIDTH;
 		const dh = DOOR_HEIGHT;
 		const frameW = 0.3;
+		const frameT = T + 0.06; // slightly wider than wall to prevent z-fighting
 		const id = doorIdx++;
 
 		// Left jamb
 		const left = B.MeshBuilder.CreateBox(`df_l_${id}`, {
-			width: facingX ? T : frameW,
+			width: facingX ? frameT : frameW,
 			height: H,
-			depth: facingX ? frameW : T
+			depth: facingX ? frameW : frameT
 		}, scene);
 		left.position.set(
 			x + (facingX ? 0 : -dw / 2 - frameW / 2),
@@ -118,9 +119,9 @@ export function createArenaMap(
 
 		// Right jamb
 		const right = B.MeshBuilder.CreateBox(`df_r_${id}`, {
-			width: facingX ? T : frameW,
+			width: facingX ? frameT : frameW,
 			height: H,
-			depth: facingX ? frameW : T
+			depth: facingX ? frameW : frameT
 		}, scene);
 		right.position.set(
 			x + (facingX ? 0 : dw / 2 + frameW / 2),
@@ -133,9 +134,9 @@ export function createArenaMap(
 
 		// Lintel (top bar above door)
 		const lintel = B.MeshBuilder.CreateBox(`df_t_${id}`, {
-			width: facingX ? T : dw + frameW * 2,
+			width: facingX ? frameT : dw + frameW * 2,
 			height: H - dh,
-			depth: facingX ? dw + frameW * 2 : T
+			depth: facingX ? dw + frameW * 2 : frameT
 		}, scene);
 		lintel.position.set(x, dh + (H - dh) / 2, z);
 		lintel.material = doorframeMat;

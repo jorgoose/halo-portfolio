@@ -101,8 +101,8 @@ export function createVFXManager(
 	flashCorePivot.parent = flashRoot;
 	const flashCoreCone = createFlashCone(
 		'mFlashCoreCone',
-		lowQuality ? 0.2 : 0.28,
-		lowQuality ? 0.08 : 0.11,
+		lowQuality ? 0.32 : 0.38,
+		lowQuality ? 0.12 : 0.15,
 		flashCoreMat
 	);
 	flashCoreCone.parent = flashCorePivot;
@@ -111,8 +111,8 @@ export function createVFXManager(
 	flashPlumePivot.parent = flashRoot;
 	const flashPlumeCone = createFlashCone(
 		'mFlashPlumeCone',
-		lowQuality ? 0.28 : 0.4,
-		lowQuality ? 0.05 : 0.07,
+		lowQuality ? 0.4 : 0.52,
+		lowQuality ? 0.08 : 0.1,
 		flashCoreMat
 	);
 	flashPlumeCone.parent = flashPlumePivot;
@@ -121,8 +121,8 @@ export function createVFXManager(
 	flashPetalLeftPivot.parent = flashRoot;
 	const flashPetalLeft = createFlashCone(
 		'mFlashPetalLeft',
-		lowQuality ? 0.18 : 0.24,
-		lowQuality ? 0.04 : 0.055,
+		lowQuality ? 0.28 : 0.34,
+		lowQuality ? 0.06 : 0.08,
 		flashPetalMat
 	);
 	flashPetalLeft.parent = flashPetalLeftPivot;
@@ -131,8 +131,8 @@ export function createVFXManager(
 	flashPetalRightPivot.parent = flashRoot;
 	const flashPetalRight = createFlashCone(
 		'mFlashPetalRight',
-		lowQuality ? 0.18 : 0.24,
-		lowQuality ? 0.04 : 0.055,
+		lowQuality ? 0.28 : 0.34,
+		lowQuality ? 0.06 : 0.08,
 		flashPetalMat
 	);
 	flashPetalRight.parent = flashPetalRightPivot;
@@ -141,8 +141,8 @@ export function createVFXManager(
 	flashPetalUpPivot.parent = flashRoot;
 	const flashPetalUp = createFlashCone(
 		'mFlashPetalUp',
-		lowQuality ? 0.16 : 0.22,
-		lowQuality ? 0.036 : 0.05,
+		lowQuality ? 0.24 : 0.3,
+		lowQuality ? 0.055 : 0.07,
 		flashPetalMat
 	);
 	flashPetalUp.parent = flashPetalUpPivot;
@@ -151,8 +151,8 @@ export function createVFXManager(
 	flashPetalDownPivot.parent = flashRoot;
 	const flashPetalDown = createFlashCone(
 		'mFlashPetalDown',
-		lowQuality ? 0.16 : 0.22,
-		lowQuality ? 0.036 : 0.05,
+		lowQuality ? 0.24 : 0.3,
+		lowQuality ? 0.055 : 0.07,
 		flashPetalMat
 	);
 	flashPetalDown.parent = flashPetalDownPivot;
@@ -290,8 +290,8 @@ export function createVFXManager(
 	scene.registerBeforeRender(mainTick);
 
 	function muzzleFlash(pos: InstanceType<BabylonNamespace['Vector3']>, dir: InstanceType<BabylonNamespace['Vector3']>) {
-		// Reset any previous flash instance to avoid lingering detached meshes.
-		endFlash();
+		// During sustained fire, don't kill the previous flash — just reset state
+		// so the flash stays continuously visible between rapid shots.
 
 		if (dir.lengthSquared() < 0.0001) {
 			_flashDir.set(0, 0, 1);
@@ -324,26 +324,12 @@ export function createVFXManager(
 		flashCoreMat.alpha = 0.95;
 		flashPetalMat.alpha = 0.78;
 
-		setFlashEnabled(true);
+		if (!flashActive) {
+			setFlashEnabled(true);
+		}
 		flashActive = true;
 		flashElapsed = 0;
 		flashFramesLeft = lowQuality ? 3 : 4;
-
-		// Failsafe: ensure flash is always hidden, even if frame updates stall.
-		if (flashHideTimer) {
-			clearTimeout(flashHideTimer);
-			activeTimers.delete(flashHideTimer);
-			flashHideTimer = null;
-		}
-		const hideDelayMs = Math.ceil(flashDuration * 1000) + 24;
-		flashHideTimer = setTimeout(() => {
-			if (flashHideTimer) {
-				activeTimers.delete(flashHideTimer);
-			}
-			flashHideTimer = null;
-			endFlash();
-		}, hideDelayMs);
-		activeTimers.add(flashHideTimer);
 	}
 
 	// --- Impact spark pool ---

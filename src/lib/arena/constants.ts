@@ -2,12 +2,12 @@
 export const PLAYER_SPEED = 0.18;
 export const PLAYER_SPRINT_SPEED = 0.28;
 export const MOUSE_SENSITIVITY = 3000;
-export const GRAVITY_ACCEL = -0.006;
+export const GRAVITY_ACCEL = -0.005;
 export const COLLISION_ELLIPSOID = { x: 0.5, y: 1.0, z: 0.5 };
 export const PLAYER_HEIGHT = 2.4;
 export const NEAR_CLIP = 0.1;
 export const VERTICAL_LOOK_LIMIT = 1.48; // ~85 degrees
-export const JUMP_VELOCITY = 0.04;
+export const JUMP_VELOCITY = 0.09;
 
 // Health & Shield
 export const MAX_HEALTH = 100;

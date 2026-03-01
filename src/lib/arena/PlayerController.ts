@@ -6,7 +6,9 @@ import {
 	COLLISION_ELLIPSOID,
 	PLAYER_HEIGHT,
 	NEAR_CLIP,
-	VERTICAL_LOOK_LIMIT
+	VERTICAL_LOOK_LIMIT,
+	JUMP_IMPULSE,
+	JUMP_DECAY
 } from './constants';
 
 export interface PlayerController {
@@ -62,6 +64,34 @@ export function createPlayerController(
 	};
 	scene.registerBeforeRender(clampFn);
 
+	// Jump
+	let jumpVelocity = 0;
+	let jumpPressed = false;
+
+	const jumpObserver = scene.onKeyboardObservable.add((kbInfo) => {
+		if (kbInfo.type === B.KeyboardEventTypes.KEYDOWN && kbInfo.event.code === 'Space') {
+			jumpPressed = true;
+		}
+		if (kbInfo.type === B.KeyboardEventTypes.KEYUP && kbInfo.event.code === 'Space') {
+			jumpPressed = false;
+		}
+	});
+
+	const jumpFn = () => {
+		const grounded = camera.position.y <= PLAYER_HEIGHT + 0.15;
+
+		if (jumpPressed && grounded && jumpVelocity <= 0) {
+			jumpVelocity = JUMP_IMPULSE;
+		}
+
+		if (jumpVelocity > 0) {
+			camera.cameraDirection.y += jumpVelocity;
+			jumpVelocity -= JUMP_DECAY;
+			if (jumpVelocity < 0) jumpVelocity = 0;
+		}
+	};
+	scene.registerBeforeRender(jumpFn);
+
 	const _forwardRay = new B.Ray(new B.Vector3(), new B.Vector3(), 100);
 	function getForwardRay() {
 		return camera.getForwardRayToRef(_forwardRay, 100);
@@ -74,6 +104,8 @@ export function createPlayerController(
 	function dispose() {
 		canvas.removeEventListener('click', requestLock);
 		scene.unregisterBeforeRender(clampFn);
+		scene.unregisterBeforeRender(jumpFn);
+		if (jumpObserver) scene.onKeyboardObservable.remove(jumpObserver);
 		camera.detachControl();
 		camera.dispose();
 	}

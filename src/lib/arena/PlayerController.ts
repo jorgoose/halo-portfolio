@@ -13,7 +13,7 @@ import {
 // With the ellipsoid (offset 1.0, height 1.0), the collision body extends
 // from camera.y to camera.y+2.0. Eye level should be near the top of the
 // body. GROUND_Y is the camera Y when standing on the floor (Y=0).
-const GROUND_Y = 1.3;
+const GROUND_Y = 1.45;
 
 export interface PlayerController {
 	camera: InstanceType<BabylonNamespace['FreeCamera']>;

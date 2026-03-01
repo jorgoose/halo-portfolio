@@ -4,12 +4,15 @@ import {
 	MOUSE_SENSITIVITY,
 	GRAVITY_ACCEL,
 	COLLISION_ELLIPSOID,
-	PLAYER_HEIGHT,
 	NEAR_CLIP,
 	VERTICAL_LOOK_LIMIT,
 	JUMP_VELOCITY,
 	CEILING_HEIGHT
 } from './constants';
+
+// Camera rests at Y=0 on the floor — the ellipsoid (offset 1.0, height 1.0)
+// extends upward from camera.y, so camera.y=0 means feet on the ground.
+const GROUND_Y = 0;
 
 export interface PlayerController {
 	camera: InstanceType<BabylonNamespace['FreeCamera']>;
@@ -100,14 +103,14 @@ export function createPlayerController(
 			}
 
 			// Ground clamp
-			if (camera.position.y <= PLAYER_HEIGHT) {
-				camera.position.y = PLAYER_HEIGHT;
+			if (camera.position.y <= GROUND_Y) {
+				camera.position.y = GROUND_Y;
 				yVel = 0;
 				grounded = true;
 			}
 		} else {
 			// Keep player pinned to ground (replaces applyGravity)
-			camera.position.y = PLAYER_HEIGHT;
+			camera.position.y = GROUND_Y;
 		}
 	};
 	scene.registerBeforeRender(jumpFn);

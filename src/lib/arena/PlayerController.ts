@@ -85,6 +85,10 @@ export function createPlayerController(
 	const maxCamY = CEILING_HEIGHT - COLLISION_ELLIPSOID.y * 2 - 0.05;
 
 	const jumpFn = () => {
+		// Prevent Babylon's built-in movement from adding Y drift
+		// (cameraDirection.y accumulates from look angle + inertia while moving)
+		camera.cameraDirection.y = 0;
+
 		if (jumpRequested && grounded) {
 			yVel = JUMP_VELOCITY;
 			grounded = false;

@@ -29,7 +29,6 @@ export function createVFXManager(
 ): VFXManager {
 	const lowQuality = options.lowQuality ?? false;
 	const activeTimers = new Set<ReturnType<typeof setTimeout>>();
-	const activeParticles = new Set<InstanceType<BabylonNamespace['ParticleSystem']>>();
 	let lastImpactAt = 0;
 	let flashHideTimer: ReturnType<typeof setTimeout> | null = null;
 	let flashFramesLeft = 0;
@@ -62,6 +61,7 @@ export function createVFXManager(
 	flashCoreMat.alpha = 0.95;
 	flashCoreMat.disableLighting = true;
 	flashCoreMat.backFaceCulling = false;
+	flashCoreMat.freeze();
 
 	const flashPetalMat = new B.StandardMaterial('flashPetalMat', scene);
 	flashPetalMat.emissiveColor = new B.Color3(1.0, 0.72, 0.24);
@@ -70,6 +70,7 @@ export function createVFXManager(
 	flashPetalMat.alpha = 0.78;
 	flashPetalMat.disableLighting = true;
 	flashPetalMat.backFaceCulling = false;
+	flashPetalMat.freeze();
 
 	const flashRoot = new B.TransformNode('flashRoot', scene);
 
@@ -179,6 +180,7 @@ export function createVFXManager(
 	shieldMat.diffuseColor = new B.Color3(0, 0, 0);
 	shieldMat.alpha = 0.25;
 	shieldMat.backFaceCulling = false;
+	shieldMat.freeze();
 
 	const shieldMesh = B.MeshBuilder.CreateSphere(
 		'shieldFlare',
@@ -344,15 +346,14 @@ export function createVFXManager(
 		activeTimers.add(flashHideTimer);
 	}
 
-	function impactSpark(pos: InstanceType<BabylonNamespace['Vector3']>) {
-		const now = performance.now();
-		if (lowQuality && now - lastImpactAt < 45) return;
-		lastImpactAt = now;
-
-		const ps = new B.ParticleSystem('impactSpark', lowQuality ? 10 : 20, scene);
+	// --- Impact spark pool ---
+	interface PooledPS { system: InstanceType<BabylonNamespace['ParticleSystem']>; emitterPos: InstanceType<BabylonNamespace['Vector3']>; available: boolean; }
+	const sparkPool: PooledPS[] = [];
+	for (let i = 0; i < 3; i++) {
+		const emitterPos = new B.Vector3(0, -9999, 0);
+		const ps = new B.ParticleSystem(`impactSpark_${i}`, lowQuality ? 10 : 20, scene);
 		ps.particleTexture = particleTex;
-		ps.emitter = pos.clone();
-
+		ps.emitter = emitterPos;
 		ps.minLifeTime = 0.05;
 		ps.maxLifeTime = lowQuality ? 0.16 : 0.2;
 		ps.minSize = 0.05;
@@ -360,24 +361,30 @@ export function createVFXManager(
 		ps.emitRate = lowQuality ? 45 : 80;
 		ps.minEmitPower = 2;
 		ps.maxEmitPower = lowQuality ? 4 : 5;
-
 		ps.direction1 = new B.Vector3(...SPARK_DIR1);
 		ps.direction2 = new B.Vector3(...SPARK_DIR2);
-
 		ps.color1 = new B.Color4(...COLOR_ORANGE, 1);
 		ps.color2 = new B.Color4(...COLOR_AMBER, 1);
 		ps.colorDead = new B.Color4(0, 0, 0, 0);
-
 		ps.gravity = new B.Vector3(...SPARK_GRAVITY);
-		ps.start();
-		activeParticles.add(ps);
+		sparkPool.push({ system: ps, emitterPos, available: true });
+	}
+
+	function impactSpark(pos: InstanceType<BabylonNamespace['Vector3']>) {
+		const now = performance.now();
+		if (lowQuality && now - lastImpactAt < 45) return;
+		lastImpactAt = now;
+
+		const entry = sparkPool.find((e) => e.available);
+		if (!entry) return; // graceful degradation
+
+		entry.available = false;
+		entry.emitterPos.copyFrom(pos);
+		entry.system.start();
 
 		tracked(() => {
-			ps.stop();
-			tracked(() => {
-				ps.dispose();
-				activeParticles.delete(ps);
-			}, 150);
+			entry.system.stop();
+			tracked(() => { entry.available = true; }, 150);
 		}, lowQuality ? 60 : 80);
 	}
 
@@ -404,11 +411,13 @@ export function createVFXManager(
 		}, 100);
 	}
 
-	function deathEffect(pos: InstanceType<BabylonNamespace['Vector3']>) {
-		const ps = new B.ParticleSystem('deathEffect', lowQuality ? 16 : 30, scene);
+	// --- Death effect pool ---
+	const deathPool: PooledPS[] = [];
+	for (let i = 0; i < 2; i++) {
+		const emitterPos = new B.Vector3(0, -9999, 0);
+		const ps = new B.ParticleSystem(`deathEffect_${i}`, lowQuality ? 16 : 30, scene);
 		ps.particleTexture = particleTex;
-		ps.emitter = pos.clone();
-
+		ps.emitter = emitterPos;
 		ps.minLifeTime = lowQuality ? 0.24 : 0.3;
 		ps.maxLifeTime = lowQuality ? 0.6 : 0.8;
 		ps.minSize = 0.1;
@@ -416,24 +425,26 @@ export function createVFXManager(
 		ps.emitRate = lowQuality ? 180 : 300;
 		ps.minEmitPower = 3;
 		ps.maxEmitPower = lowQuality ? 6 : 8;
-
 		ps.direction1 = new B.Vector3(...DEATH_DIR1);
 		ps.direction2 = new B.Vector3(...DEATH_DIR2);
-
 		ps.color1 = new B.Color4(...COLOR_ENEMY_RED, 1);
 		ps.color2 = new B.Color4(...COLOR_ORANGE, 1);
 		ps.colorDead = new B.Color4(0, 0, 0, 0);
-
 		ps.gravity = new B.Vector3(...DEATH_GRAVITY);
-		ps.start();
-		activeParticles.add(ps);
+		deathPool.push({ system: ps, emitterPos, available: true });
+	}
+
+	function deathEffect(pos: InstanceType<BabylonNamespace['Vector3']>) {
+		const entry = deathPool.find((e) => e.available);
+		if (!entry) return; // graceful degradation
+
+		entry.available = false;
+		entry.emitterPos.copyFrom(pos);
+		entry.system.start();
 
 		tracked(() => {
-			ps.stop();
-			tracked(() => {
-				ps.dispose();
-				activeParticles.delete(ps);
-			}, 500);
+			entry.system.stop();
+			tracked(() => { entry.available = true; }, 500);
 		}, lowQuality ? 150 : 200);
 	}
 
@@ -448,12 +459,9 @@ export function createVFXManager(
 		activeTimers.forEach((id) => clearTimeout(id));
 		activeTimers.clear();
 
-		// Stop and dispose all live particle systems
-		activeParticles.forEach((ps) => {
-			ps.stop();
-			ps.dispose();
-		});
-		activeParticles.clear();
+		// Stop and dispose all pooled particle systems
+		for (const entry of sparkPool) { entry.system.stop(); entry.system.dispose(); }
+		for (const entry of deathPool) { entry.system.stop(); entry.system.dispose(); }
 
 		// Dispose pooled resources
 		flashCoreCone.dispose();

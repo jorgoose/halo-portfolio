@@ -66,6 +66,7 @@ export async function createGunViewModel(
 	ammoMat.specularColor = new B.Color3(0, 0, 0);
 	ammoMat.disableLighting = true;
 	ammoMat.backFaceCulling = false;
+	ammoMat.freeze();
 
 	const ammoScreenHeight = 0.04;
 	const ammoScreenAngle = Math.PI / 7;
@@ -100,21 +101,10 @@ export async function createGunViewModel(
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
 
-		// Outer glow pass — wide, soft bloom
+		// Inner glow pass
 		ctx.save();
 		ctx.shadowColor = glowColor;
-		ctx.shadowBlur = 40;
-		ctx.shadowOffsetX = 0;
-		ctx.shadowOffsetY = 0;
-		ctx.fillStyle = 'rgba(0,0,0,0)';
-		ctx.fillText(text, 128, 66);
-		ctx.fillText(text, 128, 66);
-		ctx.restore();
-
-		// Inner glow pass — tighter, brighter
-		ctx.save();
-		ctx.shadowColor = color;
-		ctx.shadowBlur = 16;
+		ctx.shadowBlur = 6;
 		ctx.shadowOffsetX = 0;
 		ctx.shadowOffsetY = 0;
 		ctx.fillStyle = color;

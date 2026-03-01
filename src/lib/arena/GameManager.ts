@@ -138,11 +138,14 @@ export async function initGameManager(
 	dirLight.intensity = 0.8;
 	dirLight.diffuse = new B.Color3(1.0, 0.95, 0.85);
 
-	// Monument point light at center
-	const centerLight = new B.PointLight('centerLight', new B.Vector3(0, 8, 0), scene);
-	centerLight.intensity = 0.4;
-	centerLight.diffuse = new B.Color3(1.0, 0.7, 0.2);
-	centerLight.range = 40;
+	// Monument point light at center (skip on low/medium quality)
+	let centerLight: InstanceType<BabylonNamespace['PointLight']> | null = null;
+	if (!lowQualityMode && !mediumQualityMode) {
+		centerLight = new B.PointLight('centerLight', new B.Vector3(0, 8, 0), scene);
+		centerLight.intensity = 0.4;
+		centerLight.diffuse = new B.Color3(1.0, 0.7, 0.2);
+		centerLight.range = 40;
+	}
 
 	// --- Arena Map ---
 	const { spawnPoints } = createArenaMap(B, scene);
@@ -169,6 +172,10 @@ export async function initGameManager(
 				reset: () => {},
 				dispose: () => {}
 			};
+	// Octree for faster raycasting (O(log n) instead of O(n))
+	await import('@babylonjs/core/Culling/Octrees/octreeSceneComponent');
+	scene.createOrUpdateSelectionOctree(64, 2);
+
 	const hud = createHudState(hudCallback);
 
 	let kills = 0;
@@ -291,7 +298,8 @@ export async function initGameManager(
 	engine.runRenderLoop(() => {
 		const now = performance.now();
 		if (now - lastFrameAt < minFrameIntervalMs) return;
-		lastFrameAt = now;
+		lastFrameAt += minFrameIntervalMs;
+		if (now - lastFrameAt > minFrameIntervalMs) lastFrameAt = now;
 		scene.render();
 	});
 
@@ -339,6 +347,7 @@ export async function initGameManager(
 		enemySystem.dispose();
 		vfxManager.dispose();
 		weapon.dispose();
+		centerLight?.dispose();
 		glowLayer?.dispose();
 		scene.dispose();
 		engine.dispose();

@@ -21,6 +21,11 @@ export function createArenaMap(
 	const allMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
 	const allMaterials: InstanceType<BabylonNamespace['StandardMaterial']>[] = [];
 
+	// Groups for mesh merging (non-collision, same-material meshes)
+	const cliffMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
+	const trimMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
+	const panelMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
+
 	// --- 2A: Procedural Sky Dome ---
 	const skyDome = B.MeshBuilder.CreateSphere('skyDome', { diameter: 500, segments: 16 }, scene);
 	skyDome.scaling = new B.Vector3(-1, 1, 1);
@@ -118,21 +123,25 @@ export function createArenaMap(
 		trimFront.position.set(0, BASE_HEIGHT + 0.4, bz + (bz < 0 ? 8 : -8));
 		trimFront.material = amberGlow;
 		trimFront.isPickable = false;
+		trimMeshes.push(trimFront as InstanceType<BabylonNamespace['Mesh']>);
 
 		const trimBack = B.MeshBuilder.CreateBox(`baseTrimB_${bi}`, { width: 20.2, height: 0.15, depth: 0.15 }, scene);
 		trimBack.position.set(0, BASE_HEIGHT + 0.4, bz + (bz < 0 ? -8 : 8));
 		trimBack.material = amberGlow;
 		trimBack.isPickable = false;
+		trimMeshes.push(trimBack as InstanceType<BabylonNamespace['Mesh']>);
 
 		const trimLeft = B.MeshBuilder.CreateBox(`baseTrimL_${bi}`, { width: 0.15, height: 0.15, depth: 16.2 }, scene);
 		trimLeft.position.set(-10, BASE_HEIGHT + 0.4, bz);
 		trimLeft.material = amberGlow;
 		trimLeft.isPickable = false;
+		trimMeshes.push(trimLeft as InstanceType<BabylonNamespace['Mesh']>);
 
 		const trimRight = B.MeshBuilder.CreateBox(`baseTrimR_${bi}`, { width: 0.15, height: 0.15, depth: 16.2 }, scene);
 		trimRight.position.set(10, BASE_HEIGHT + 0.4, bz);
 		trimRight.material = amberGlow;
 		trimRight.isPickable = false;
+		trimMeshes.push(trimRight as InstanceType<BabylonNamespace['Mesh']>);
 
 		// Front ramp facing valley center
 		const frontRampDir = bz < 0 ? 1 : -1;
@@ -156,10 +165,6 @@ export function createArenaMap(
 		allMeshes.push(
 			base as InstanceType<BabylonNamespace['Mesh']>,
 			top as InstanceType<BabylonNamespace['Mesh']>,
-			trimFront as InstanceType<BabylonNamespace['Mesh']>,
-			trimBack as InstanceType<BabylonNamespace['Mesh']>,
-			trimLeft as InstanceType<BabylonNamespace['Mesh']>,
-			trimRight as InstanceType<BabylonNamespace['Mesh']>,
 			frontRamp as InstanceType<BabylonNamespace['Mesh']>
 		);
 	});
@@ -199,7 +204,7 @@ export function createArenaMap(
 		panel.lookAt(new B.Vector3(0, 6, 0));
 		panel.material = hardLightMat;
 		panel.isPickable = false;
-		allMeshes.push(panel as InstanceType<BabylonNamespace['Mesh']>);
+		panelMeshes.push(panel as InstanceType<BabylonNamespace['Mesh']>);
 	});
 
 	// --- 2F: Rock Formations (~16 clusters) ---
@@ -247,14 +252,14 @@ export function createArenaMap(
 		eastCliff.material = cliffMat;
 		eastCliff.checkCollisions = false;
 		eastCliff.isPickable = false;
-		allMeshes.push(eastCliff as InstanceType<BabylonNamespace['Mesh']>);
+		cliffMeshes.push(eastCliff as InstanceType<BabylonNamespace['Mesh']>);
 
 		const westCliff = B.MeshBuilder.CreateBox(`cliffW_${i}`, { width: 4, height: cliffHeight, depth: 35 }, scene);
 		westCliff.position.set(-half + 2, cliffHeight / 2, zPos);
 		westCliff.material = cliffMat;
 		westCliff.checkCollisions = false;
 		westCliff.isPickable = false;
-		allMeshes.push(westCliff as InstanceType<BabylonNamespace['Mesh']>);
+		cliffMeshes.push(westCliff as InstanceType<BabylonNamespace['Mesh']>);
 	}
 
 	// North/South cliff walls (visual only)
@@ -266,14 +271,14 @@ export function createArenaMap(
 		northCliff.material = cliffMat;
 		northCliff.checkCollisions = false;
 		northCliff.isPickable = false;
-		allMeshes.push(northCliff as InstanceType<BabylonNamespace['Mesh']>);
+		cliffMeshes.push(northCliff as InstanceType<BabylonNamespace['Mesh']>);
 
 		const southCliff = B.MeshBuilder.CreateBox(`cliffS_${i}`, { width: 35, height: cliffHeight, depth: 4 }, scene);
 		southCliff.position.set(xPos, cliffHeight / 2, half - 2);
 		southCliff.material = cliffMat;
 		southCliff.checkCollisions = false;
 		southCliff.isPickable = false;
-		allMeshes.push(southCliff as InstanceType<BabylonNamespace['Mesh']>);
+		cliffMeshes.push(southCliff as InstanceType<BabylonNamespace['Mesh']>);
 	}
 
 	// 4 invisible boundary walls replace 24 cliff collision meshes
@@ -347,6 +352,26 @@ export function createArenaMap(
 			{ x: -15, y: 0.5, z: 0 }
 		]
 	};
+
+	// --- Merge static meshes sharing the same material to reduce draw calls ---
+	function mergeGroup(
+		meshes: InstanceType<BabylonNamespace['Mesh']>[],
+		name: string
+	): InstanceType<BabylonNamespace['Mesh']> | null {
+		if (meshes.length === 0) return null;
+		for (const m of meshes) m.bakeCurrentTransformIntoVertices();
+		const merged = B.Mesh.MergeMeshes(meshes, true) as InstanceType<BabylonNamespace['Mesh']> | null;
+		if (merged) {
+			merged.name = name;
+			merged.isPickable = false;
+			merged.checkCollisions = false;
+			allMeshes.push(merged);
+		}
+		return merged;
+	}
+	mergeGroup(cliffMeshes, 'mergedCliffs');       // 24 → 1
+	mergeGroup(trimMeshes, 'mergedBaseTrims');      // 8 → 1
+	mergeGroup(panelMeshes, 'mergedHardLights');    // 4 → 1
 
 	// --- Freeze all static meshes and materials ---
 	// Tells Babylon to cache world matrices (skips recalc every frame) and

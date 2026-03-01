@@ -52,10 +52,12 @@ export function createEnemySystem(
 	const bodyMat = new B.StandardMaterial('enemyBodyMat', scene);
 	bodyMat.diffuseColor = new B.Color3(...COLOR_DARK_METAL);
 	bodyMat.emissiveColor = new B.Color3(0.08, 0.08, 0.08);
+	bodyMat.freeze();
 
 	const visorMat = new B.StandardMaterial('enemyVisorMat', scene);
 	visorMat.emissiveColor = new B.Color3(...COLOR_ENEMY_RED);
 	visorMat.diffuseColor = new B.Color3(0, 0, 0);
+	visorMat.freeze();
 
 	function buildEnemyMesh(index: number): { mesh: InstanceType<BabylonNamespace['Mesh']>; headMesh: InstanceType<BabylonNamespace['Mesh']> } {
 		if (lowQuality) {

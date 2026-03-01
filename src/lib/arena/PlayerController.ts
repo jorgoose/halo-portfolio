@@ -62,8 +62,9 @@ export function createPlayerController(
 	};
 	scene.registerBeforeRender(clampFn);
 
+	const _forwardRay = new B.Ray(new B.Vector3(), new B.Vector3(), 100);
 	function getForwardRay() {
-		return camera.getForwardRay(100);
+		return camera.getForwardRayToRef(_forwardRay, 100);
 	}
 
 	function getPosition() {

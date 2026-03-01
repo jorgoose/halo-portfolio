@@ -13,7 +13,7 @@ import type { VFXManager } from './VFXManager';
 import { createGunViewModel } from './GunViewModel';
 import type { GunViewModel } from './GunViewModel';
 import { createHudState } from './HudState';
-import { FOG_COLOR, FOG_DENSITY, WEAPON_DAMAGE } from './constants';
+import { FOG_COLOR, WEAPON_DAMAGE } from './constants';
 
 export interface GameManager {
 	dispose: () => void;
@@ -39,7 +39,6 @@ export async function initGameManager(
 		DirectionalLight: BABYLON.DirectionalLight,
 		MeshBuilder: BABYLON.MeshBuilder,
 		StandardMaterial: BABYLON.StandardMaterial,
-		GlowLayer: BABYLON.GlowLayer,
 		Ray: BABYLON.Ray,
 		ParticleSystem: BABYLON.ParticleSystem,
 		Texture: BABYLON.Texture,
@@ -48,85 +47,22 @@ export async function initGameManager(
 		AbstractMesh: BABYLON.AbstractMesh,
 		KeyboardEventTypes: BABYLON.KeyboardEventTypes,
 		PointerEventTypes: BABYLON.PointerEventTypes,
-		TransformNode: BABYLON.TransformNode,
-		PointLight: BABYLON.PointLight
+		TransformNode: BABYLON.TransformNode
 	};
 
-	const nav = typeof navigator !== 'undefined' ? navigator : null;
-	const navWithDeviceMemory = nav as (Navigator & { deviceMemory?: number }) | null;
-	const hardwareThreads = nav?.hardwareConcurrency ?? 8;
-	const deviceMemoryGb = navWithDeviceMemory?.deviceMemory ?? 8;
-	const prefersReducedMotion =
-		typeof window !== 'undefined' &&
-		typeof window.matchMedia === 'function' &&
-		window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	const qualityParam =
-		typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('quality') : null;
 	const enemiesParam =
 		typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('enemies') : null;
 	// Temporary perf mode: disable enemies by default; re-enable with ?enemies=on
 	const enemiesEnabled = enemiesParam === 'on';
-	const strictLowHardware = hardwareThreads <= 4 || deviceMemoryGb <= 4;
-	const moderateHardware = hardwareThreads <= 8 || deviceMemoryGb <= 8;
-	let lowQualityMode = prefersReducedMotion || strictLowHardware;
-	let mediumQualityMode = false;
 
 	// --- Engine & Scene ---
 	const engine = new B.Engine(canvas, false, { stencil: true });
 	const scene = new B.Scene(engine);
 	scene.clearColor = new B.Color4(...FOG_COLOR, 1);
 	scene.skipPointerMovePicking = true;
-
-	const glInfo = engine.getGlInfo();
-	const rendererText = `${glInfo.renderer ?? ''} ${glInfo.vendor ?? ''}`.toLowerCase();
-	const integratedRenderer =
-		/(intel|iris|uhd|vega|swiftshader|llvmpipe|microsoft basic render|mesa)/.test(rendererText) &&
-		!/(nvidia|geforce|rtx|radeon rx|arc)/.test(rendererText);
-	if (qualityParam === 'high') {
-		lowQualityMode = false;
-		mediumQualityMode = false;
-	} else if (qualityParam === 'medium') {
-		lowQualityMode = false;
-		mediumQualityMode = true;
-	} else if (qualityParam === 'low') {
-		lowQualityMode = true;
-		mediumQualityMode = false;
-	} else if (integratedRenderer) {
-		// Most integrated GPUs run best in a "medium" profile rather than strict low.
-		mediumQualityMode = moderateHardware && !lowQualityMode;
-		lowQualityMode = strictLowHardware || prefersReducedMotion;
-	}
-
-	if (lowQualityMode) {
-		// Keep low-end mode performant without making controls feel sluggish.
-		const scale = strictLowHardware ? 1.85 : 1.65;
-		engine.setHardwareScalingLevel(scale);
-		scene.performancePriority = BABYLON.ScenePerformancePriority.Aggressive;
-	} else if (mediumQualityMode) {
-		engine.setHardwareScalingLevel(1.3);
-		scene.performancePriority = BABYLON.ScenePerformancePriority.Intermediate;
-	}
-
-	// Fog
-	if (lowQualityMode) {
-		scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
-	} else if (mediumQualityMode) {
-		scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-		scene.fogDensity = FOG_DENSITY * 0.6;
-		scene.fogColor = new B.Color3(...FOG_COLOR);
-	} else {
-		scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-		scene.fogDensity = FOG_DENSITY;
-		scene.fogColor = new B.Color3(...FOG_COLOR);
-	}
-
-	// Glow layer is expensive on integrated graphics, so skip in medium/low profiles.
-	const glowLayer = lowQualityMode || mediumQualityMode
-		? null
-		: new B.GlowLayer('glow', scene, { blurKernelSize: 16, mainTextureFixedSize: 256 });
-	if (glowLayer) {
-		glowLayer.intensity = 0.3;
-	}
+	engine.setHardwareScalingLevel(1.65);
+	scene.performancePriority = BABYLON.ScenePerformancePriority.Aggressive;
+	scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
 
 	// --- Lighting ---
 	const hemiLight = new B.HemisphericLight('hemiLight', new B.Vector3(0, 1, 0), scene);
@@ -138,15 +74,6 @@ export async function initGameManager(
 	dirLight.intensity = 0.8;
 	dirLight.diffuse = new B.Color3(1.0, 0.95, 0.85);
 
-	// Monument point light at center (skip on low/medium quality)
-	let centerLight: InstanceType<BabylonNamespace['PointLight']> | null = null;
-	if (!lowQualityMode && !mediumQualityMode) {
-		centerLight = new B.PointLight('centerLight', new B.Vector3(0, 8, 0), scene);
-		centerLight.intensity = 0.4;
-		centerLight.diffuse = new B.Color3(1.0, 0.7, 0.2);
-		centerLight.range = 40;
-	}
-
 	// --- Arena Map ---
 	const { spawnPoints } = createArenaMap(B, scene);
 
@@ -156,14 +83,12 @@ export async function initGameManager(
 
 	// --- Systems ---
 	let healthShield: HealthShieldSystem = createHealthShieldSystem();
-	const vfxManager: VFXManager = createVFXManager(B, scene, { lowQuality: lowQualityMode });
-	let gunViewModel: GunViewModel = await createGunViewModel(B, scene, player.camera, {
-		lowQuality: lowQualityMode
-	});
+	const vfxManager: VFXManager = createVFXManager(B, scene, { lowQuality: true });
+	let gunViewModel: GunViewModel = await createGunViewModel(B, scene, player.camera);
 	let weapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, gunViewModel);
 	let enemySystem: EnemySystem = enemiesEnabled
 		? createEnemySystem(B, scene, spawnPoints, vfxManager, {
-				lowQuality: lowQualityMode
+				lowQuality: false
 			})
 		: {
 				enemies: [],
@@ -347,8 +272,6 @@ export async function initGameManager(
 		enemySystem.dispose();
 		vfxManager.dispose();
 		weapon.dispose();
-		centerLight?.dispose();
-		glowLayer?.dispose();
 		scene.dispose();
 		engine.dispose();
 	}

@@ -10,17 +10,11 @@ export interface GunViewModel {
 	dispose: () => void;
 }
 
-interface GunViewModelOptions {
-	lowQuality?: boolean;
-}
-
 export async function createGunViewModel(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>,
-	camera: InstanceType<BabylonNamespace['FreeCamera']>,
-	options: GunViewModelOptions = {}
+	camera: InstanceType<BabylonNamespace['FreeCamera']>
 ): Promise<GunViewModel> {
-	void options;
 
 	// Root node parented to camera
 	const root = new B.TransformNode('gunRoot', scene);

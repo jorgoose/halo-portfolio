@@ -70,7 +70,6 @@ export interface BabylonNamespace {
 	DirectionalLight: typeof import('@babylonjs/core').DirectionalLight;
 	MeshBuilder: typeof import('@babylonjs/core').MeshBuilder;
 	StandardMaterial: typeof import('@babylonjs/core').StandardMaterial;
-	GlowLayer: typeof import('@babylonjs/core').GlowLayer;
 	Ray: typeof import('@babylonjs/core').Ray;
 	ParticleSystem: typeof import('@babylonjs/core').ParticleSystem;
 	Texture: typeof import('@babylonjs/core').Texture;
@@ -80,5 +79,4 @@ export interface BabylonNamespace {
 	KeyboardEventTypes: typeof import('@babylonjs/core').KeyboardEventTypes;
 	PointerEventTypes: typeof import('@babylonjs/core').PointerEventTypes;
 	TransformNode: typeof import('@babylonjs/core').TransformNode;
-	PointLight: typeof import('@babylonjs/core').PointLight;
 }

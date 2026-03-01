@@ -371,11 +371,15 @@ export function createArenaMap(
 	// 6. COVER: CRATES
 	// ============================================================
 	const crateDefs: { x: number; z: number; w: number; h: number; d: number; ry?: number }[] = [
-		// Central hub
-		{ x: -5, z: -3, w: 1.5, h: 1.2, d: 1.5 },
-		{ x: 5, z: 3, w: 1.5, h: 1.2, d: 1.5 },
-		{ x: -7, z: 4, w: 1, h: 0.8, d: 1, ry: 0.3 },
-		{ x: 7, z: -4, w: 1, h: 0.8, d: 1, ry: -0.3 },
+		// Central hub — scattered
+		{ x: -6, z: -7, w: 1.6, h: 1.2, d: 1.4, ry: 0.15 },
+		{ x: -4.5, z: -6.2, w: 1, h: 0.8, d: 0.9, ry: -0.4 },  // nearby small crate
+		{ x: 8, z: 2, w: 1.4, h: 1.1, d: 1.3, ry: -0.25 },
+		{ x: -3, z: 5, w: 1, h: 0.7, d: 1.1, ry: 0.55 },
+		{ x: 3.5, z: -4, w: 1.8, h: 1.3, d: 1.5, ry: 0.1 },    // bottom of stacked pair
+		{ x: 3.5, z: -4, w: 1.1, h: 0.8, d: 1.0, ry: 0.35 },   // top of stacked pair (y set below)
+		{ x: -11, z: 1.5, w: 1.2, h: 0.9, d: 1.2, ry: -0.6 },  // near west pillar
+		{ x: 6, z: 7, w: 1.3, h: 1.0, d: 1.4, ry: 0.7 },
 		// Corridor intersections
 		{ x: 0, z: -16, w: 1.2, h: 1, d: 1.2 },
 		{ x: 0, z: 16, w: 1.2, h: 1, d: 1.2 },
@@ -385,9 +389,11 @@ export function createArenaMap(
 		{ x: -12, z: 28, w: 1.5, h: 1, d: 1.5 },    // Storage
 		{ x: 12, z: 28, w: 2, h: 1.4, d: 1.5 }      // Med Bay
 	];
+	const stackBottomH = 1.3; // height of stacked pair bottom crate (index 4)
 	crateDefs.forEach((c, i) => {
 		const crate = B.MeshBuilder.CreateBox(`crate_${i}`, { width: c.w, height: c.h, depth: c.d }, scene);
-		crate.position.set(c.x, c.h / 2, c.z);
+		const y = i === 5 ? stackBottomH + c.h / 2 : c.h / 2; // stack top crate on bottom
+		crate.position.set(c.x, y, c.z);
 		if (c.ry) crate.rotation.y = c.ry;
 		crate.material = crateMat;
 		crate.checkCollisions = true;
@@ -399,8 +405,8 @@ export function createArenaMap(
 	// 7. COVER: BARRICADES (waist-high metal shields)
 	// ============================================================
 	const barricadeDefs: { x: number; z: number; w: number; d: number; ry?: number }[] = [
-		{ x: -3, z: 0, w: 2.5, d: 0.3 },        // Hub west
-		{ x: 3, z: 0, w: 2.5, d: 0.3 },          // Hub east
+		{ x: -8, z: -3, w: 2.5, d: 0.3, ry: 0.2 },   // Hub west-south
+		{ x: 5, z: 6, w: 2.2, d: 0.3, ry: -0.35 },   // Hub east-north
 		{ x: 0, z: -27, w: 2, d: 0.3 },           // South main corridor
 		{ x: 0, z: 27, w: 2, d: 0.3 },            // North main corridor
 		{ x: -29.5, z: -27, w: 2, d: 0.3, ry: 0.4 }, // West flank

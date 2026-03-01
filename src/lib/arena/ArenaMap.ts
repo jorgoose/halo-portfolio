@@ -358,7 +358,7 @@ export function createArenaMap(
 	// 5a. HUB DIVIDER WALL (breaks north-south line of sight)
 	// ============================================================
 	// East-west wall at Z=0, leaving gaps past the pillars for flanking
-	addWall(0, 0, 14, T);
+	addWall(0, 0, 10, T);
 
 	// ============================================================
 	// 5. HUB PILLARS (4 structural columns)
@@ -489,7 +489,7 @@ export function createArenaMap(
 		// Main corridor
 		[0, -40], [0, -30], [0, -20], [0, 20], [0, 30], [0, 40],
 		// Hub
-		[-8, 0], [0, 0], [8, 0],
+		[-8, -4], [0, -4], [8, -4], [-8, 4], [0, 4], [8, 4],
 		// West flank
 		[-29.5, -35], [-29.5, -20], [-29.5, 0], [-29.5, 20], [-29.5, 35],
 		// East flank

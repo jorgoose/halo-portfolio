@@ -26,44 +26,46 @@ export const ENEMY_HEALTH = 100;
 export const ENEMY_DAMAGE = 10;
 export const ENEMY_FIRE_RATE = 1.0; // seconds between shots
 export const ENEMY_SPEED = 0.06;
-export const ENEMY_DETECT_RANGE = 50;
-export const ENEMY_ATTACK_RANGE = 40;
+export const ENEMY_DETECT_RANGE = 35;
+export const ENEMY_ATTACK_RANGE = 28;
 export const ENEMY_MELEE_RANGE = 3;
 export const MAX_ENEMIES = 6;
 export const ENEMY_RESPAWN_TIME = 5.0; // seconds
 
 // Arena
-export const ARENA_SIZE = 200;
-export const WALL_HEIGHT = 8;
-export const PLATFORM_HEIGHT = 2.5;
+export const ARENA_SIZE = 120;
+export const ARENA_WIDTH = 80;
+export const WALL_HEIGHT = 6;
+export const CEILING_HEIGHT = 6;
 export const COVER_HEIGHT = 1.4;
-export const BASE_HEIGHT = 8;
+export const CORRIDOR_WIDTH = 8;
+export const FLANK_WIDTH = 6;
+export const DOOR_WIDTH = 4;
+export const DOOR_HEIGHT = 5.5;
+export const WALL_THICKNESS = 0.5;
 
 // Colors (as RGB arrays for Babylon Color3)
 export const COLOR_AMBER = [1.0, 0.7, 0.2] as const; // warm Forerunner gold
 export const COLOR_BLUE_ACCENT = [0.3, 0.4, 0.8] as const;
-export const COLOR_DARK_METAL = [0.15, 0.16, 0.18] as const; // silver-grey
-export const COLOR_FLOOR = [0.1, 0.11, 0.13] as const;
+export const COLOR_DARK_METAL = [0.15, 0.16, 0.18] as const;
+export const COLOR_FLOOR = [0.12, 0.13, 0.15] as const;
 export const COLOR_FORERUNNER_SILVER = [0.5, 0.52, 0.55] as const;
 export const COLOR_SHIELD_CYAN = [0.37, 0.76, 1.0] as const; // preserved for shield VFX
 export const COLOR_ENEMY_RED = [1.0, 0.2, 0.1] as const;
 export const COLOR_ORANGE = [1.0, 0.6, 0.1] as const;
 
-// Outdoor colors
-export const COLOR_GROUND_GRASS = [0.22, 0.32, 0.18] as const;
-export const COLOR_ROCK = [0.35, 0.33, 0.3] as const;
-export const COLOR_CLIFF = [0.28, 0.26, 0.22] as const;
-export const COLOR_WATER = [0.15, 0.3, 0.45] as const;
-
-// Sky gradient
-export const SKY_ZENITH = '#4073d9';
-export const SKY_MID = '#78aae6';
-export const SKY_HORIZON = '#a6c0e1';
-export const SKY_BOTTOM = '#8c9eb8';
+// Indoor colors
+export const COLOR_WALL = [0.38, 0.40, 0.43] as const;
+export const COLOR_CEILING = [0.28, 0.29, 0.31] as const;
+export const COLOR_PILLAR = [0.30, 0.31, 0.33] as const;
+export const COLOR_DOORFRAME = [0.22, 0.23, 0.25] as const;
+export const COLOR_CRATE = [0.20, 0.22, 0.18] as const;
+export const COLOR_BARRICADE = [0.25, 0.26, 0.28] as const;
+export const COLOR_CEILING_LIGHT = [0.9, 0.88, 0.82] as const;
 
 // Fog
-export const FOG_DENSITY = 0.0015;
-export const FOG_COLOR = [0.55, 0.62, 0.72] as const;
+export const FOG_DENSITY = 0.008;
+export const FOG_COLOR = [0.05, 0.05, 0.07] as const;
 
 // VFX
 export const MUZZLE_FLASH_DURATION = 0.05;

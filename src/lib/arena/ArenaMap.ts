@@ -1,17 +1,21 @@
 import type { BabylonNamespace, ArenaMapResult } from './types';
 import {
+	ARENA_WIDTH,
 	ARENA_SIZE,
-	BASE_HEIGHT,
+	CEILING_HEIGHT,
+	WALL_THICKNESS,
+	DOOR_WIDTH,
+	DOOR_HEIGHT,
+	COLOR_WALL,
+	COLOR_FLOOR,
+	COLOR_CEILING,
+	COLOR_PILLAR,
+	COLOR_DOORFRAME,
 	COLOR_AMBER,
-	COLOR_FORERUNNER_SILVER,
-	COLOR_GROUND_GRASS,
-	COLOR_ROCK,
-	COLOR_CLIFF,
-	COLOR_WATER,
-	SKY_ZENITH,
-	SKY_MID,
-	SKY_HORIZON,
-	SKY_BOTTOM
+	COLOR_CRATE,
+	COLOR_BARRICADE,
+	COLOR_CEILING_LIGHT,
+	COLOR_DARK_METAL
 } from './constants';
 
 export function createArenaMap(
@@ -21,339 +25,546 @@ export function createArenaMap(
 	const allMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
 	const allMaterials: InstanceType<BabylonNamespace['StandardMaterial']>[] = [];
 
-	// Groups for mesh merging (non-collision, same-material meshes)
-	const cliffMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
-	const trimMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
-	const panelMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
+	// Groups for mesh merging (visual-only, same-material)
+	const doorframeMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
+	const accentMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
+	const ceilingLightMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
+	const ribMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
 
-	// --- 2A: Procedural Sky Dome ---
-	const skyDome = B.MeshBuilder.CreateSphere('skyDome', { diameter: 500, segments: 16 }, scene);
-	skyDome.scaling = new B.Vector3(-1, 1, 1);
-	skyDome.infiniteDistance = true;
-	skyDome.isPickable = false;
+	const halfW = ARENA_WIDTH / 2;  // 40
+	const halfL = ARENA_SIZE / 2;   // 60
+	const H = CEILING_HEIGHT;       // 6
+	const T = WALL_THICKNESS;       // 0.5
 
-	const skyMat = new B.StandardMaterial('skyMat', scene);
-	const skyTex = new B.DynamicTexture('skyTex', { width: 1, height: 256 }, scene, false);
-	const ctx = skyTex.getContext();
+	// --- Materials ---
+	const wallMat = new B.StandardMaterial('wallMat', scene);
+	wallMat.diffuseColor = new B.Color3(...COLOR_WALL);
+	wallMat.specularColor = new B.Color3(0.15, 0.15, 0.14);
 
-	// Vertical gradient: zenith (top) → mid → horizon → bottom (fog blend)
-	const grad = ctx.createLinearGradient(0, 0, 0, 256);
-	grad.addColorStop(0.0, SKY_ZENITH);
-	grad.addColorStop(0.3, SKY_MID);
-	grad.addColorStop(0.6, SKY_HORIZON);
-	grad.addColorStop(1.0, SKY_BOTTOM);
-	ctx.fillStyle = grad;
-	ctx.fillRect(0, 0, 1, 256);
-	skyTex.update();
+	const floorMat = new B.StandardMaterial('floorMat', scene);
+	floorMat.diffuseColor = new B.Color3(...COLOR_FLOOR);
+	floorMat.specularColor = new B.Color3(0.08, 0.08, 0.08);
 
-	skyMat.emissiveTexture = skyTex;
-	skyMat.diffuseColor = new B.Color3(0, 0, 0);
-	skyMat.specularColor = new B.Color3(0, 0, 0);
-	skyMat.disableLighting = true;
-	skyMat.backFaceCulling = false;
-	skyDome.material = skyMat;
-	allMeshes.push(skyDome as InstanceType<BabylonNamespace['Mesh']>);
-	allMaterials.push(skyMat);
+	const ceilingMat = new B.StandardMaterial('ceilingMat', scene);
+	ceilingMat.diffuseColor = new B.Color3(...COLOR_CEILING);
+	ceilingMat.specularColor = new B.Color3(0.1, 0.1, 0.1);
 
-	// --- 2B: Materials ---
-	const grassMat = new B.StandardMaterial('grassMat', scene);
-	grassMat.diffuseColor = new B.Color3(...COLOR_GROUND_GRASS);
-	grassMat.specularColor = new B.Color3(0.05, 0.05, 0.04);
+	const pillarMat = new B.StandardMaterial('pillarMat', scene);
+	pillarMat.diffuseColor = new B.Color3(...COLOR_PILLAR);
+	pillarMat.specularColor = new B.Color3(0.12, 0.12, 0.12);
 
-	const rockMat = new B.StandardMaterial('rockMat', scene);
-	rockMat.diffuseColor = new B.Color3(...COLOR_ROCK);
-	rockMat.specularColor = new B.Color3(0.1, 0.1, 0.09);
+	const doorframeMat = new B.StandardMaterial('doorframeMat', scene);
+	doorframeMat.diffuseColor = new B.Color3(...COLOR_DOORFRAME);
+	doorframeMat.specularColor = new B.Color3(0.1, 0.1, 0.1);
 
-	const cliffMat = new B.StandardMaterial('cliffMat', scene);
-	cliffMat.diffuseColor = new B.Color3(...COLOR_CLIFF);
-	cliffMat.specularColor = new B.Color3(0.08, 0.08, 0.07);
+	const accentStripMat = new B.StandardMaterial('accentStripMat', scene);
+	accentStripMat.emissiveColor = new B.Color3(...COLOR_AMBER);
+	accentStripMat.diffuseColor = new B.Color3(0, 0, 0);
+	accentStripMat.disableLighting = true;
 
-	const waterMat = new B.StandardMaterial('waterMat', scene);
-	waterMat.diffuseColor = new B.Color3(...COLOR_WATER);
-	waterMat.specularColor = new B.Color3(0.2, 0.2, 0.2);
-	waterMat.alpha = 0.7;
+	const crateMat = new B.StandardMaterial('crateMat', scene);
+	crateMat.diffuseColor = new B.Color3(...COLOR_CRATE);
+	crateMat.specularColor = new B.Color3(0.08, 0.08, 0.07);
 
-	const silverMat = new B.StandardMaterial('silverMat', scene);
-	silverMat.diffuseColor = new B.Color3(...COLOR_FORERUNNER_SILVER);
-	silverMat.specularColor = new B.Color3(0.4, 0.4, 0.38);
-	silverMat.emissiveColor = new B.Color3(0.06, 0.06, 0.058);
+	const barricadeMat = new B.StandardMaterial('barricadeMat', scene);
+	barricadeMat.diffuseColor = new B.Color3(...COLOR_BARRICADE);
+	barricadeMat.specularColor = new B.Color3(0.12, 0.12, 0.12);
 
-	const amberGlow = new B.StandardMaterial('amberGlow', scene);
-	amberGlow.emissiveColor = new B.Color3(...COLOR_AMBER);
-	amberGlow.diffuseColor = new B.Color3(0, 0, 0);
-	amberGlow.alpha = 0.9;
+	const ceilingLightMat = new B.StandardMaterial('ceilingLightMat', scene);
+	ceilingLightMat.emissiveColor = new B.Color3(...COLOR_CEILING_LIGHT);
+	ceilingLightMat.diffuseColor = new B.Color3(0, 0, 0);
+	ceilingLightMat.disableLighting = true;
 
-	const platformMat = new B.StandardMaterial('platformMat', scene);
-	platformMat.diffuseColor = new B.Color3(0.12, 0.12, 0.13);
-	platformMat.specularColor = new B.Color3(0.15, 0.15, 0.14);
-	platformMat.emissiveColor = new B.Color3(0.02, 0.02, 0.02);
+	const basePlatMat = new B.StandardMaterial('basePlatMat', scene);
+	basePlatMat.diffuseColor = new B.Color3(...COLOR_DARK_METAL);
+	basePlatMat.specularColor = new B.Color3(0.1, 0.1, 0.1);
 
-	const hardLightMat = new B.StandardMaterial('hardLightMat', scene);
-	hardLightMat.emissiveColor = new B.Color3(...COLOR_AMBER);
-	hardLightMat.diffuseColor = new B.Color3(0, 0, 0);
-	hardLightMat.alpha = 0.3;
-	hardLightMat.backFaceCulling = false;
+	allMaterials.push(wallMat, floorMat, ceilingMat, pillarMat, doorframeMat, accentStripMat, crateMat, barricadeMat, ceilingLightMat, basePlatMat);
 
-	allMaterials.push(grassMat, rockMat, cliffMat, waterMat, silverMat, amberGlow, platformMat, hardLightMat);
+	// --- Helper: wall segment ---
+	let wallIdx = 0;
+	function addWall(x: number, z: number, w: number, d: number) {
+		const wall = B.MeshBuilder.CreateBox(`wall_${wallIdx++}`, { width: w, height: H, depth: d }, scene);
+		wall.position.set(x, H / 2, z);
+		wall.material = wallMat;
+		wall.checkCollisions = true;
+		wall.isPickable = true;
+		allMeshes.push(wall as InstanceType<BabylonNamespace['Mesh']>);
+		return wall;
+	}
 
-	// --- 2C: Valley Floor ---
-	const floor = B.MeshBuilder.CreateGround('floor', { width: ARENA_SIZE, height: ARENA_SIZE }, scene);
-	floor.material = grassMat;
+	// --- Helper: doorframe (visual trim around a doorway) ---
+	let doorIdx = 0;
+	function addDoorframe(x: number, z: number, facingX: boolean) {
+		const dw = DOOR_WIDTH;
+		const dh = DOOR_HEIGHT;
+		const frameW = 0.3;
+		const id = doorIdx++;
+
+		// Left jamb
+		const left = B.MeshBuilder.CreateBox(`df_l_${id}`, {
+			width: facingX ? T : frameW,
+			height: H,
+			depth: facingX ? frameW : T
+		}, scene);
+		left.position.set(
+			x + (facingX ? 0 : -dw / 2 - frameW / 2),
+			H / 2,
+			z + (facingX ? -dw / 2 - frameW / 2 : 0)
+		);
+		left.material = doorframeMat;
+		left.isPickable = false;
+		doorframeMeshes.push(left as InstanceType<BabylonNamespace['Mesh']>);
+
+		// Right jamb
+		const right = B.MeshBuilder.CreateBox(`df_r_${id}`, {
+			width: facingX ? T : frameW,
+			height: H,
+			depth: facingX ? frameW : T
+		}, scene);
+		right.position.set(
+			x + (facingX ? 0 : dw / 2 + frameW / 2),
+			H / 2,
+			z + (facingX ? dw / 2 + frameW / 2 : 0)
+		);
+		right.material = doorframeMat;
+		right.isPickable = false;
+		doorframeMeshes.push(right as InstanceType<BabylonNamespace['Mesh']>);
+
+		// Lintel (top bar above door)
+		const lintel = B.MeshBuilder.CreateBox(`df_t_${id}`, {
+			width: facingX ? T : dw + frameW * 2,
+			height: H - dh,
+			depth: facingX ? dw + frameW * 2 : T
+		}, scene);
+		lintel.position.set(x, dh + (H - dh) / 2, z);
+		lintel.material = doorframeMat;
+		lintel.isPickable = false;
+		doorframeMeshes.push(lintel as InstanceType<BabylonNamespace['Mesh']>);
+	}
+
+	// ============================================================
+	// 1. FLOOR
+	// ============================================================
+	const floor = B.MeshBuilder.CreateGround('floor', { width: ARENA_WIDTH, height: ARENA_SIZE }, scene);
+	floor.material = floorMat;
 	floor.checkCollisions = true;
-	floor.receiveShadows = true;
+	floor.isPickable = true;
 	allMeshes.push(floor as InstanceType<BabylonNamespace['Mesh']>);
 
-	// --- 2D: Two Elevated Bases (Z = ±70) ---
-	const baseZPositions = [-70, 70];
-	baseZPositions.forEach((bz, bi) => {
-		// Main platform box
-		const base = B.MeshBuilder.CreateBox(`base_${bi}`, { width: 20, height: BASE_HEIGHT, depth: 16 }, scene);
-		base.position.set(0, BASE_HEIGHT / 2, bz);
-		base.material = silverMat;
-		base.checkCollisions = true;
+	// ============================================================
+	// 2. CEILING
+	// ============================================================
+	const ceiling = B.MeshBuilder.CreateGround('ceiling', { width: ARENA_WIDTH, height: ARENA_SIZE }, scene);
+	ceiling.position.y = H;
+	ceiling.rotation.x = Math.PI;
+	ceiling.material = ceilingMat;
+	ceiling.checkCollisions = true;
+	ceiling.isPickable = false;
+	allMeshes.push(ceiling as InstanceType<BabylonNamespace['Mesh']>);
 
-		// Walkable top surface
-		const top = B.MeshBuilder.CreateBox(`baseTop_${bi}`, { width: 20, height: 0.4, depth: 16 }, scene);
-		top.position.set(0, BASE_HEIGHT + 0.2, bz);
-		top.material = platformMat;
-		top.checkCollisions = true;
+	// ============================================================
+	// 3. PERIMETER WALLS
+	// ============================================================
+	// East wall (X = +40)
+	addWall(halfW, 0, T, ARENA_SIZE);
+	// West wall (X = -40)
+	addWall(-halfW, 0, T, ARENA_SIZE);
+	// North wall (Z = +60)
+	addWall(0, halfL, ARENA_WIDTH, T);
+	// South wall (Z = -60)
+	addWall(0, -halfL, ARENA_WIDTH, T);
 
-		// Amber trim around top edge
-		const trimFront = B.MeshBuilder.CreateBox(`baseTrimF_${bi}`, { width: 20.2, height: 0.15, depth: 0.15 }, scene);
-		trimFront.position.set(0, BASE_HEIGHT + 0.4, bz + (bz < 0 ? 8 : -8));
-		trimFront.material = amberGlow;
-		trimFront.isPickable = false;
-		trimMeshes.push(trimFront as InstanceType<BabylonNamespace['Mesh']>);
+	// ============================================================
+	// 4. INTERIOR WALLS — Room definitions
+	// ============================================================
+	// Layout key dimensions:
+	// Base rooms: Z=-60 to -44 and Z=+44 to +60 (16 deep, 20 wide centered)
+	// Corridors: Z=-44 to -10 and Z=+10 to +44
+	//   Main corridor: X=-4 to X=+4 (8 wide)
+	//   West flank: X=-40 to X=-34 inner wall, corridor X=-25 to -19 (6 wide)
+	//   East flank: X=+19 to +25 (6 wide)
+	// Side rooms: Armory/Barracks at Z~-34 to -22, Storage/MedBay at Z~+22 to +34
+	// Central hub: Z=-10 to +10, X=-15 to +15
 
-		const trimBack = B.MeshBuilder.CreateBox(`baseTrimB_${bi}`, { width: 20.2, height: 0.15, depth: 0.15 }, scene);
-		trimBack.position.set(0, BASE_HEIGHT + 0.4, bz + (bz < 0 ? -8 : 8));
-		trimBack.material = amberGlow;
-		trimBack.isPickable = false;
-		trimMeshes.push(trimBack as InstanceType<BabylonNamespace['Mesh']>);
+	// --- BASE SOUTH (Z=-60 to -44) ---
+	// East wall of south base
+	addWall(10, -52, T, 16);
+	// West wall of south base
+	addWall(-10, -52, T, 16);
+	// North wall of south base — with center doorway (4 wide)
+	// Left segment: X=-10 to -2
+	addWall(-6, -44, 8, T);
+	// Right segment: X=+2 to +10
+	addWall(6, -44, 8, T);
+	// Doorframe at south base exit
+	addDoorframe(0, -44, false);
 
-		const trimLeft = B.MeshBuilder.CreateBox(`baseTrimL_${bi}`, { width: 0.15, height: 0.15, depth: 16.2 }, scene);
-		trimLeft.position.set(-10, BASE_HEIGHT + 0.4, bz);
-		trimLeft.material = amberGlow;
-		trimLeft.isPickable = false;
-		trimMeshes.push(trimLeft as InstanceType<BabylonNamespace['Mesh']>);
+	// --- BASE NORTH (Z=+44 to +60) ---
+	addWall(10, 52, T, 16);
+	addWall(-10, 52, T, 16);
+	// South wall of north base — with center doorway
+	addWall(-6, 44, 8, T);
+	addWall(6, 44, 8, T);
+	addDoorframe(0, 44, false);
 
-		const trimRight = B.MeshBuilder.CreateBox(`baseTrimR_${bi}`, { width: 0.15, height: 0.15, depth: 16.2 }, scene);
-		trimRight.position.set(10, BASE_HEIGHT + 0.4, bz);
-		trimRight.material = amberGlow;
-		trimRight.isPickable = false;
-		trimMeshes.push(trimRight as InstanceType<BabylonNamespace['Mesh']>);
+	// --- SOUTH CORRIDOR SECTION (Z=-44 to -10) ---
+	// Main corridor east wall (X=+4, Z=-44 to -10, with gaps for side rooms)
+	// Segment: Z=-44 to -34
+	addWall(4, -39, T, 10);
+	// Gap at Z=-34 (doorway into barracks)
+	addDoorframe(4, -34, true);
+	// Segment: Z=-34 to -22 (barracks doorway already at -34)
+	addWall(4, -28, T, 12);
+	// Gap at Z=-22 (doorway back from barracks)
+	// Actually let's simplify: one doorway per side room
+	// Segment: Z=-22 to -10
+	addWall(4, -16, T, 12);
 
-		// Front ramp facing valley center
-		const frontRampDir = bz < 0 ? 1 : -1;
-		const frontRamp = B.MeshBuilder.CreateBox(`frontRamp_${bi}`, { width: 5, height: 0.3, depth: 16 }, scene);
-		frontRamp.position.set(0, BASE_HEIGHT / 2, bz + frontRampDir * 16);
-		frontRamp.rotation.x = frontRampDir * -Math.atan2(BASE_HEIGHT, 16);
-		frontRamp.material = platformMat;
-		frontRamp.checkCollisions = true;
+	// Main corridor west wall (X=-4, Z=-44 to -10)
+	addWall(-4, -39, T, 10);
+	addDoorframe(-4, -34, true);
+	addWall(-4, -28, T, 12);
+	addWall(-4, -16, T, 12);
 
-		// Side ramps
-		const sideXPositions = [-8, 8];
-		sideXPositions.forEach((sx, si) => {
-			const sideRamp = B.MeshBuilder.CreateBox(`sideRamp_${bi}_${si}`, { width: 3, height: 0.3, depth: 10 }, scene);
-			sideRamp.position.set(sx, BASE_HEIGHT / 2, bz + frontRampDir * 13);
-			sideRamp.rotation.x = frontRampDir * -Math.atan2(BASE_HEIGHT, 10);
-			sideRamp.material = platformMat;
-			sideRamp.checkCollisions = true;
-			allMeshes.push(sideRamp as InstanceType<BabylonNamespace['Mesh']>);
-		});
+	// West flank outer wall (already perimeter at X=-40)
+	// West flank inner wall (X=-19, Z=-44 to -10, with doorway gaps into armory)
+	addWall(-19, -39, T, 10);
+	addDoorframe(-19, -34, true);
+	addWall(-19, -28, T, 12);
+	addWall(-19, -16, T, 12);
 
-		allMeshes.push(
-			base as InstanceType<BabylonNamespace['Mesh']>,
-			top as InstanceType<BabylonNamespace['Mesh']>,
-			frontRamp as InstanceType<BabylonNamespace['Mesh']>
-		);
+	// East flank inner wall (X=+19, Z=-44 to -10)
+	addWall(19, -39, T, 10);
+	addDoorframe(19, -34, true);
+	addWall(19, -28, T, 12);
+	addWall(19, -16, T, 12);
+
+	// Armory room (west side room, X=-19 to -4, Z=-34 to -22)
+	// North wall of armory
+	addWall(-11.5, -22, 15, T);
+	// South wall of armory
+	addWall(-11.5, -34, 15, T);
+
+	// Barracks room (east side room, X=+4 to +19, Z=-34 to -22)
+	addWall(11.5, -22, 15, T);
+	addWall(11.5, -34, 15, T);
+
+	// Flank corridor walls (connect bases to hub through side paths)
+	// West flank: X=-40 to -19
+	// Cross walls at Z=-44 (south entry to west flank)
+	// Leave gap for doorway at X=-29.5 (center of flank)
+	addWall(-24, -44, 10, T); // X=-19 to -29
+	addDoorframe(-29.5, -44, false);
+	addWall(-35, -44, 10, T); // X=-30 to -40
+
+	// East flank at Z=-44
+	addWall(24, -44, 10, T);
+	addDoorframe(29.5, -44, false);
+	addWall(35, -44, 10, T);
+
+	// --- NORTH CORRIDOR SECTION (Z=+10 to +44) — mirror of south ---
+	// Main corridor east wall
+	addWall(4, 39, T, 10);
+	addDoorframe(4, 34, true);
+	addWall(4, 28, T, 12);
+	addWall(4, 16, T, 12);
+
+	// Main corridor west wall
+	addWall(-4, 39, T, 10);
+	addDoorframe(-4, 34, true);
+	addWall(-4, 28, T, 12);
+	addWall(-4, 16, T, 12);
+
+	// West flank inner wall
+	addWall(-19, 39, T, 10);
+	addDoorframe(-19, 34, true);
+	addWall(-19, 28, T, 12);
+	addWall(-19, 16, T, 12);
+
+	// East flank inner wall
+	addWall(19, 39, T, 10);
+	addDoorframe(19, 34, true);
+	addWall(19, 28, T, 12);
+	addWall(19, 16, T, 12);
+
+	// Storage room (west, Z=+22 to +34)
+	addWall(-11.5, 22, 15, T);
+	addWall(-11.5, 34, 15, T);
+
+	// Med Bay room (east, Z=+22 to +34)
+	addWall(11.5, 22, 15, T);
+	addWall(11.5, 34, 15, T);
+
+	// Flank cross walls at Z=+44
+	addWall(-24, 44, 10, T);
+	addDoorframe(-29.5, 44, false);
+	addWall(-35, 44, 10, T);
+
+	addWall(24, 44, 10, T);
+	addDoorframe(29.5, 44, false);
+	addWall(35, 44, 10, T);
+
+	// --- CENTRAL HUB (Z=-10 to +10) ---
+	// Hub east wall (X=+15) with doorway at Z=0
+	addWall(15, -5, T, 10);
+	addWall(15, 5, T, 10);
+	addDoorframe(15, 0, true);
+
+	// Hub west wall (X=-15)
+	addWall(-15, -5, T, 10);
+	addWall(-15, 5, T, 10);
+	addDoorframe(-15, 0, true);
+
+	// Hub north wall (Z=+10) — doorways at main corridor (X=0) and flanks
+	// Main corridor doorway
+	addWall(-9.5, 10, 11, T); // X=-15 to -4
+	addWall(9.5, 10, 11, T);  // X=+4 to +15
+	addDoorframe(0, 10, false);
+
+	// Hub south wall (Z=-10)
+	addWall(-9.5, -10, 11, T);
+	addWall(9.5, -10, 11, T);
+	addDoorframe(0, -10, false);
+
+	// Flank-to-hub connections: walls from X=-40/-19 to X=-15 at Z=-10/+10
+	// West side Z=-10 wall
+	addWall(-17, -10, 4, T); // X=-15 to -19
+	// West outer flank wall at Z=-10 (X=-19 to -40, with doorway)
+	addWall(-25, -10, 12, T);
+	addDoorframe(-31, -10, false);
+	addWall(-37, -10, 6, T);
+
+	// West side Z=+10 wall
+	addWall(-17, 10, 4, T);
+	addWall(-25, 10, 12, T);
+	addDoorframe(-31, 10, false);
+	addWall(-37, 10, 6, T);
+
+	// East side Z=-10
+	addWall(17, -10, 4, T);
+	addWall(25, -10, 12, T);
+	addDoorframe(31, -10, false);
+	addWall(37, -10, 6, T);
+
+	// East side Z=+10
+	addWall(17, 10, 4, T);
+	addWall(25, 10, 12, T);
+	addDoorframe(31, 10, false);
+	addWall(37, 10, 6, T);
+
+	// ============================================================
+	// 5. HUB PILLARS (4 structural columns)
+	// ============================================================
+	const pillarPositions: [number, number][] = [[-10, -6], [10, -6], [-10, 6], [10, 6]];
+	pillarPositions.forEach(([px, pz], i) => {
+		const pillar = B.MeshBuilder.CreateBox(`pillar_${i}`, { width: 1, height: H, depth: 1 }, scene);
+		pillar.position.set(px, H / 2, pz);
+		pillar.material = pillarMat;
+		pillar.checkCollisions = true;
+		pillar.isPickable = true;
+		allMeshes.push(pillar as InstanceType<BabylonNamespace['Mesh']>);
 	});
 
-	// --- 2E: Central Forerunner Monument ---
-	const centerPlat = B.MeshBuilder.CreateCylinder('centerPlat', { height: 1, diameter: 14, tessellation: 8 }, scene);
-	centerPlat.position.set(0, 0.5, 0);
-	centerPlat.material = platformMat;
-	centerPlat.checkCollisions = true;
-
-	const obelisk = B.MeshBuilder.CreateBox('obelisk', { width: 2, height: 10, depth: 2 }, scene);
-	obelisk.position.set(0, 6, 0);
-	obelisk.material = silverMat;
-	obelisk.checkCollisions = true;
-
-	const topRing = B.MeshBuilder.CreateTorus('topRing', { diameter: 3.5, thickness: 0.15, tessellation: 16 }, scene);
-	topRing.position.set(0, 11.5, 0);
-	topRing.material = amberGlow;
-	topRing.isPickable = false;
-
-	allMeshes.push(
-		centerPlat as InstanceType<BabylonNamespace['Mesh']>,
-		obelisk as InstanceType<BabylonNamespace['Mesh']>,
-		topRing as InstanceType<BabylonNamespace['Mesh']>
-	);
-
-	// 4 hard-light panels facing inward
-	const panelOffsets: [number, number][] = [
-		[4.5, 0],
-		[-4.5, 0],
-		[0, 4.5],
-		[0, -4.5]
+	// ============================================================
+	// 6. COVER: CRATES
+	// ============================================================
+	const crateDefs: { x: number; z: number; w: number; h: number; d: number; ry?: number }[] = [
+		// Central hub
+		{ x: -5, z: -3, w: 1.5, h: 1.2, d: 1.5 },
+		{ x: 5, z: 3, w: 1.5, h: 1.2, d: 1.5 },
+		{ x: -7, z: 4, w: 1, h: 0.8, d: 1, ry: 0.3 },
+		{ x: 7, z: -4, w: 1, h: 0.8, d: 1, ry: -0.3 },
+		// Corridor intersections
+		{ x: 0, z: -16, w: 1.2, h: 1, d: 1.2 },
+		{ x: 0, z: 16, w: 1.2, h: 1, d: 1.2 },
+		// Side rooms
+		{ x: -12, z: -28, w: 2, h: 1.4, d: 1.5 },  // Armory
+		{ x: 12, z: -28, w: 1.5, h: 1, d: 2 },      // Barracks
+		{ x: -12, z: 28, w: 1.5, h: 1, d: 1.5 },    // Storage
+		{ x: 12, z: 28, w: 2, h: 1.4, d: 1.5 }      // Med Bay
 	];
-	panelOffsets.forEach(([px, pz], i) => {
-		const panel = B.MeshBuilder.CreateBox(`hardLight_${i}`, { width: 1.8, height: 3, depth: 0.06 }, scene);
-		panel.position.set(px, 6, pz);
-		panel.lookAt(new B.Vector3(0, 6, 0));
-		panel.material = hardLightMat;
-		panel.isPickable = false;
-		panelMeshes.push(panel as InstanceType<BabylonNamespace['Mesh']>);
+	crateDefs.forEach((c, i) => {
+		const crate = B.MeshBuilder.CreateBox(`crate_${i}`, { width: c.w, height: c.h, depth: c.d }, scene);
+		crate.position.set(c.x, c.h / 2, c.z);
+		if (c.ry) crate.rotation.y = c.ry;
+		crate.material = crateMat;
+		crate.checkCollisions = true;
+		crate.isPickable = true;
+		allMeshes.push(crate as InstanceType<BabylonNamespace['Mesh']>);
 	});
 
-	// --- 2F: Rock Formations (~16 clusters) ---
-	const rockDefs: { x: number; z: number; w: number; h: number; d: number; ry: number }[] = [
-		// Valley flanks (X ≈ ±35) — large rock groups
-		{ x: -35, z: -30, w: 6, h: 5, d: 5, ry: 0.3 },
-		{ x: -38, z: -25, w: 4, h: 3.5, d: 4, ry: -0.5 },
-		{ x: -34, z: 10, w: 5, h: 4.5, d: 6, ry: 0.8 },
-		{ x: -37, z: 15, w: 3.5, h: 3, d: 4, ry: -0.2 },
-		{ x: 35, z: -10, w: 5, h: 4, d: 5, ry: -0.4 },
-		{ x: 38, z: -5, w: 4, h: 3.5, d: 3.5, ry: 0.6 },
-		{ x: 34, z: 30, w: 6, h: 5, d: 5, ry: -0.7 },
-		{ x: 37, z: 25, w: 3.5, h: 3, d: 4, ry: 0.1 },
-		// Mid-field — medium rocks between bases and center
-		{ x: -15, z: -40, w: 4, h: 3, d: 4, ry: 0.5 },
-		{ x: 15, z: -35, w: 3.5, h: 2.5, d: 3.5, ry: -0.3 },
-		{ x: -15, z: 40, w: 4, h: 3, d: 4, ry: -0.6 },
-		{ x: 15, z: 35, w: 3.5, h: 2.5, d: 3.5, ry: 0.4 },
-		// Near center — low rocks for close-quarters cover
-		{ x: -8, z: -12, w: 3, h: 2, d: 3, ry: 0.2 },
-		{ x: 8, z: 12, w: 3, h: 2, d: 3, ry: -0.8 },
-		{ x: -10, z: 8, w: 3.5, h: 2.5, d: 3, ry: 0.9 },
-		{ x: 10, z: -8, w: 3, h: 2, d: 3.5, ry: -0.1 }
+	// ============================================================
+	// 7. COVER: BARRICADES (waist-high metal shields)
+	// ============================================================
+	const barricadeDefs: { x: number; z: number; w: number; d: number; ry?: number }[] = [
+		{ x: -3, z: 0, w: 2.5, d: 0.3 },        // Hub west
+		{ x: 3, z: 0, w: 2.5, d: 0.3 },          // Hub east
+		{ x: 0, z: -27, w: 2, d: 0.3 },           // South main corridor
+		{ x: 0, z: 27, w: 2, d: 0.3 },            // North main corridor
+		{ x: -29.5, z: -27, w: 2, d: 0.3, ry: 0.4 }, // West flank
+		{ x: 29.5, z: 27, w: 2, d: 0.3, ry: -0.4 }   // East flank
 	];
-
-	rockDefs.forEach((r, i) => {
-		const rock = B.MeshBuilder.CreateBox(`rock_${i}`, { width: r.w, height: r.h, depth: r.d }, scene);
-		rock.position.set(r.x, r.h / 2, r.z);
-		rock.rotation.y = r.ry;
-		rock.material = rockMat;
-		rock.checkCollisions = true;
-		allMeshes.push(rock as InstanceType<BabylonNamespace['Mesh']>);
+	barricadeDefs.forEach((b, i) => {
+		const barricade = B.MeshBuilder.CreateBox(`barricade_${i}`, { width: b.w, height: 1.2, depth: b.d }, scene);
+		barricade.position.set(b.x, 0.6, b.z);
+		if (b.ry) barricade.rotation.y = b.ry;
+		barricade.material = barricadeMat;
+		barricade.checkCollisions = true;
+		barricade.isPickable = true;
+		allMeshes.push(barricade as InstanceType<BabylonNamespace['Mesh']>);
 	});
 
-	// --- 2G: Cliff Boundaries ---
-	const half = ARENA_SIZE / 2;
-	const cliffHeight = 30;
+	// ============================================================
+	// 8. ACCENT STRIPS (emissive amber along walls at Y=4.5)
+	// ============================================================
+	let accentIdx = 0;
 
-	// East/West cliff walls (visual only — collision handled by boundary walls below)
-	for (let i = 0; i < 6; i++) {
-		const zPos = -half + 20 + i * (ARENA_SIZE - 40) / 5;
-
-		const eastCliff = B.MeshBuilder.CreateBox(`cliffE_${i}`, { width: 4, height: cliffHeight, depth: 35 }, scene);
-		eastCliff.position.set(half - 2, cliffHeight / 2, zPos);
-		eastCliff.material = cliffMat;
-		eastCliff.checkCollisions = false;
-		eastCliff.isPickable = false;
-		cliffMeshes.push(eastCliff as InstanceType<BabylonNamespace['Mesh']>);
-
-		const westCliff = B.MeshBuilder.CreateBox(`cliffW_${i}`, { width: 4, height: cliffHeight, depth: 35 }, scene);
-		westCliff.position.set(-half + 2, cliffHeight / 2, zPos);
-		westCliff.material = cliffMat;
-		westCliff.checkCollisions = false;
-		westCliff.isPickable = false;
-		cliffMeshes.push(westCliff as InstanceType<BabylonNamespace['Mesh']>);
+	// Perimeter accent strips
+	// East wall
+	for (let z = -55; z <= 55; z += 10) {
+		const strip = B.MeshBuilder.CreateBox(`accent_${accentIdx++}`, { width: 0.05, height: 0.1, depth: 8 }, scene);
+		strip.position.set(halfW - T / 2 - 0.03, 4.5, z);
+		strip.material = accentStripMat;
+		strip.isPickable = false;
+		accentMeshes.push(strip as InstanceType<BabylonNamespace['Mesh']>);
+	}
+	// West wall
+	for (let z = -55; z <= 55; z += 10) {
+		const strip = B.MeshBuilder.CreateBox(`accent_${accentIdx++}`, { width: 0.05, height: 0.1, depth: 8 }, scene);
+		strip.position.set(-halfW + T / 2 + 0.03, 4.5, z);
+		strip.material = accentStripMat;
+		strip.isPickable = false;
+		accentMeshes.push(strip as InstanceType<BabylonNamespace['Mesh']>);
+	}
+	// Main corridor walls
+	for (let z = -40; z <= 40; z += 10) {
+		// East side (X=4)
+		const se = B.MeshBuilder.CreateBox(`accent_${accentIdx++}`, { width: 0.05, height: 0.1, depth: 8 }, scene);
+		se.position.set(4 + T / 2 + 0.03, 4.5, z);
+		se.material = accentStripMat;
+		se.isPickable = false;
+		accentMeshes.push(se as InstanceType<BabylonNamespace['Mesh']>);
+		// West side (X=-4)
+		const sw = B.MeshBuilder.CreateBox(`accent_${accentIdx++}`, { width: 0.05, height: 0.1, depth: 8 }, scene);
+		sw.position.set(-4 - T / 2 - 0.03, 4.5, z);
+		sw.material = accentStripMat;
+		sw.isPickable = false;
+		accentMeshes.push(sw as InstanceType<BabylonNamespace['Mesh']>);
+	}
+	// Hub walls
+	for (let x = -12; x <= 12; x += 8) {
+		// North (Z=10)
+		const sn = B.MeshBuilder.CreateBox(`accent_${accentIdx++}`, { width: 6, height: 0.1, depth: 0.05 }, scene);
+		sn.position.set(x, 4.5, 10 - T / 2 - 0.03);
+		sn.material = accentStripMat;
+		sn.isPickable = false;
+		accentMeshes.push(sn as InstanceType<BabylonNamespace['Mesh']>);
+		// South (Z=-10)
+		const ss = B.MeshBuilder.CreateBox(`accent_${accentIdx++}`, { width: 6, height: 0.1, depth: 0.05 }, scene);
+		ss.position.set(x, 4.5, -10 + T / 2 + 0.03);
+		ss.material = accentStripMat;
+		ss.isPickable = false;
+		accentMeshes.push(ss as InstanceType<BabylonNamespace['Mesh']>);
 	}
 
-	// North/South cliff walls (visual only)
-	for (let i = 0; i < 6; i++) {
-		const xPos = -half + 20 + i * (ARENA_SIZE - 40) / 5;
+	// ============================================================
+	// 9. CEILING LIGHT PANELS
+	// ============================================================
+	let lightIdx = 0;
+	const lightPositions: [number, number][] = [
+		// Main corridor
+		[0, -40], [0, -30], [0, -20], [0, 20], [0, 30], [0, 40],
+		// Hub
+		[-8, 0], [0, 0], [8, 0],
+		// West flank
+		[-29.5, -35], [-29.5, -20], [-29.5, 0], [-29.5, 20], [-29.5, 35],
+		// East flank
+		[29.5, -35], [29.5, -20], [29.5, 0], [29.5, 20], [29.5, 35],
+		// Bases
+		[0, -52], [0, 52]
+	];
+	lightPositions.forEach(([lx, lz]) => {
+		const light = B.MeshBuilder.CreateBox(`cLight_${lightIdx++}`, { width: 2, height: 0.08, depth: 1 }, scene);
+		light.position.set(lx, H - 0.05, lz);
+		light.material = ceilingLightMat;
+		light.isPickable = false;
+		ceilingLightMeshes.push(light as InstanceType<BabylonNamespace['Mesh']>);
+	});
 
-		const northCliff = B.MeshBuilder.CreateBox(`cliffN_${i}`, { width: 35, height: cliffHeight, depth: 4 }, scene);
-		northCliff.position.set(xPos, cliffHeight / 2, -half + 2);
-		northCliff.material = cliffMat;
-		northCliff.checkCollisions = false;
-		northCliff.isPickable = false;
-		cliffMeshes.push(northCliff as InstanceType<BabylonNamespace['Mesh']>);
+	// ============================================================
+	// 10. STRUCTURAL RIBS (thin vertical strips on walls)
+	// ============================================================
+	let ribIdx = 0;
+	// Perimeter ribs
+	for (let z = -52; z <= 52; z += 8) {
+		// East
+		const re = B.MeshBuilder.CreateBox(`rib_${ribIdx++}`, { width: 0.08, height: H, depth: 0.4 }, scene);
+		re.position.set(halfW - T / 2 - 0.04, H / 2, z);
+		re.material = pillarMat;
+		re.isPickable = false;
+		ribMeshes.push(re as InstanceType<BabylonNamespace['Mesh']>);
+		// West
+		const rw = B.MeshBuilder.CreateBox(`rib_${ribIdx++}`, { width: 0.08, height: H, depth: 0.4 }, scene);
+		rw.position.set(-halfW + T / 2 + 0.04, H / 2, z);
+		rw.material = pillarMat;
+		rw.isPickable = false;
+		ribMeshes.push(rw as InstanceType<BabylonNamespace['Mesh']>);
+	}
+	// North/south wall ribs
+	for (let x = -32; x <= 32; x += 8) {
+		const rn = B.MeshBuilder.CreateBox(`rib_${ribIdx++}`, { width: 0.4, height: H, depth: 0.08 }, scene);
+		rn.position.set(x, H / 2, halfL - T / 2 - 0.04);
+		rn.material = pillarMat;
+		rn.isPickable = false;
+		ribMeshes.push(rn as InstanceType<BabylonNamespace['Mesh']>);
 
-		const southCliff = B.MeshBuilder.CreateBox(`cliffS_${i}`, { width: 35, height: cliffHeight, depth: 4 }, scene);
-		southCliff.position.set(xPos, cliffHeight / 2, half - 2);
-		southCliff.material = cliffMat;
-		southCliff.checkCollisions = false;
-		southCliff.isPickable = false;
-		cliffMeshes.push(southCliff as InstanceType<BabylonNamespace['Mesh']>);
+		const rs = B.MeshBuilder.CreateBox(`rib_${ribIdx++}`, { width: 0.4, height: H, depth: 0.08 }, scene);
+		rs.position.set(x, H / 2, -halfL + T / 2 + 0.04);
+		rs.material = pillarMat;
+		rs.isPickable = false;
+		ribMeshes.push(rs as InstanceType<BabylonNamespace['Mesh']>);
 	}
 
-	// 4 invisible boundary walls replace 24 cliff collision meshes
-	const wallThickness = 2;
-	const wallHeight = cliffHeight;
-
-	const eastWall = B.MeshBuilder.CreateBox('boundaryE', { width: wallThickness, height: wallHeight, depth: ARENA_SIZE }, scene);
-	eastWall.position.set(half - 1, wallHeight / 2, 0);
-	eastWall.checkCollisions = true;
-	eastWall.isVisible = false;
-	eastWall.isPickable = false;
-
-	const westWall = B.MeshBuilder.CreateBox('boundaryW', { width: wallThickness, height: wallHeight, depth: ARENA_SIZE }, scene);
-	westWall.position.set(-half + 1, wallHeight / 2, 0);
-	westWall.checkCollisions = true;
-	westWall.isVisible = false;
-	westWall.isPickable = false;
-
-	const northWall = B.MeshBuilder.CreateBox('boundaryN', { width: ARENA_SIZE, height: wallHeight, depth: wallThickness }, scene);
-	northWall.position.set(0, wallHeight / 2, -half + 1);
-	northWall.checkCollisions = true;
-	northWall.isVisible = false;
-	northWall.isPickable = false;
-
-	const southWall = B.MeshBuilder.CreateBox('boundaryS', { width: ARENA_SIZE, height: wallHeight, depth: wallThickness }, scene);
-	southWall.position.set(0, wallHeight / 2, half - 1);
-	southWall.checkCollisions = true;
-	southWall.isVisible = false;
-	southWall.isPickable = false;
-
-	// --- 2H: Decorative Stream ---
-	const stream = B.MeshBuilder.CreateGround('stream', { width: 3, height: 120 }, scene);
-	stream.position.set(8, 0.02, 0);
-	stream.material = waterMat;
-	stream.isPickable = false;
-
-	allMeshes.push(
-		eastWall as InstanceType<BabylonNamespace['Mesh']>,
-		westWall as InstanceType<BabylonNamespace['Mesh']>,
-		northWall as InstanceType<BabylonNamespace['Mesh']>,
-		southWall as InstanceType<BabylonNamespace['Mesh']>,
-		stream as InstanceType<BabylonNamespace['Mesh']>
-	);
-
-	// --- 2I: Spawn Points ---
+	// ============================================================
+	// 11. SPAWN POINTS
+	// ============================================================
 	const spawnPoints = {
 		player: [
-			{ x: 0, y: BASE_HEIGHT + 2.4, z: -70 },
-			{ x: 0, y: BASE_HEIGHT + 2.4, z: 70 }
+			{ x: 0, y: 2.4, z: -52 },
+			{ x: 0, y: 2.4, z: 52 }
 		],
 		enemy: [
-			{ x: -20, y: 0.5, z: -30 },
-			{ x: 20, y: 0.5, z: -30 },
-			{ x: -20, y: 0.5, z: 30 },
-			{ x: 20, y: 0.5, z: 30 },
-			{ x: 0, y: 0.5, z: -15 },
-			{ x: 0, y: 0.5, z: 15 }
+			{ x: -29.5, y: 0.5, z: -27 }, // West flank south
+			{ x: 29.5, y: 0.5, z: -27 },  // East flank south
+			{ x: -29.5, y: 0.5, z: 27 },  // West flank north
+			{ x: 29.5, y: 0.5, z: 27 },   // East flank north
+			{ x: 0, y: 0.5, z: -5 },      // Hub south
+			{ x: 0, y: 0.5, z: 5 }        // Hub north
 		],
 		nav: [
-			{ x: -30, y: 0.5, z: -50 },
-			{ x: 30, y: 0.5, z: -50 },
-			{ x: 30, y: 0.5, z: -20 },
-			{ x: 30, y: 0.5, z: 20 },
-			{ x: 30, y: 0.5, z: 50 },
-			{ x: -30, y: 0.5, z: 50 },
-			{ x: -30, y: 0.5, z: 20 },
-			{ x: -30, y: 0.5, z: -20 },
+			// Main corridor loop
 			{ x: 0, y: 0.5, z: -40 },
-			{ x: 15, y: 0.5, z: 0 },
+			{ x: 0, y: 0.5, z: -20 },
+			{ x: 0, y: 0.5, z: 0 },
+			{ x: 0, y: 0.5, z: 20 },
 			{ x: 0, y: 0.5, z: 40 },
-			{ x: -15, y: 0.5, z: 0 }
+			// West flank
+			{ x: -29.5, y: 0.5, z: -35 },
+			{ x: -29.5, y: 0.5, z: 0 },
+			{ x: -29.5, y: 0.5, z: 35 },
+			// East flank
+			{ x: 29.5, y: 0.5, z: -35 },
+			{ x: 29.5, y: 0.5, z: 0 },
+			{ x: 29.5, y: 0.5, z: 35 },
+			// Hub cross
+			{ x: -10, y: 0.5, z: 0 }
 		]
 	};
 
-	// --- Merge static meshes sharing the same material to reduce draw calls ---
+	// ============================================================
+	// MERGE visual-only mesh groups
+	// ============================================================
 	function mergeGroup(
 		meshes: InstanceType<BabylonNamespace['Mesh']>[],
 		name: string
@@ -369,13 +580,15 @@ export function createArenaMap(
 		}
 		return merged;
 	}
-	mergeGroup(cliffMeshes, 'mergedCliffs');       // 24 → 1
-	mergeGroup(trimMeshes, 'mergedBaseTrims');      // 8 → 1
-	mergeGroup(panelMeshes, 'mergedHardLights');    // 4 → 1
 
-	// --- Freeze all static meshes and materials ---
-	// Tells Babylon to cache world matrices (skips recalc every frame) and
-	// freeze materials (skips shader-dirty checks). Huge win for ~80+ meshes.
+	mergeGroup(doorframeMeshes, 'mergedDoorframes');
+	mergeGroup(accentMeshes, 'mergedAccents');
+	mergeGroup(ceilingLightMeshes, 'mergedCeilingLights');
+	mergeGroup(ribMeshes, 'mergedRibs');
+
+	// ============================================================
+	// FREEZE all static meshes and materials
+	// ============================================================
 	for (const mesh of allMeshes) {
 		mesh.freezeWorldMatrix();
 	}

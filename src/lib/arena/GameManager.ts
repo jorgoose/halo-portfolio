@@ -13,7 +13,7 @@ import type { VFXManager } from './VFXManager';
 import { createGunViewModel } from './GunViewModel';
 import type { GunViewModel } from './GunViewModel';
 import { createHudState } from './HudState';
-import { FOG_COLOR, WEAPON_DAMAGE } from './constants';
+import { FOG_COLOR, FOG_DENSITY, WEAPON_DAMAGE } from './constants';
 
 export interface GameManager {
 	dispose: () => void;
@@ -46,7 +46,8 @@ export async function initGameManager(
 		AbstractMesh: BABYLON.AbstractMesh,
 		KeyboardEventTypes: BABYLON.KeyboardEventTypes,
 		PointerEventTypes: BABYLON.PointerEventTypes,
-		TransformNode: BABYLON.TransformNode
+		TransformNode: BABYLON.TransformNode,
+		PointLight: BABYLON.PointLight
 	};
 
 	const enemiesParam =
@@ -64,17 +65,30 @@ export async function initGameManager(
 	scene.skipPointerMovePicking = true;
 	engine.setHardwareScalingLevel(1.65);
 	scene.performancePriority = BABYLON.ScenePerformancePriority.Aggressive;
-	scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
+	scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+	scene.fogDensity = FOG_DENSITY;
+	scene.fogColor = new B.Color3(...FOG_COLOR);
 
-	// --- Lighting ---
+	// --- Lighting (indoor) ---
 	const hemiLight = new B.HemisphericLight('hemiLight', new B.Vector3(0, 1, 0), scene);
-	hemiLight.intensity = 0.7;
-	hemiLight.diffuse = new B.Color3(0.85, 0.88, 0.95);
-	hemiLight.groundColor = new B.Color3(0.25, 0.22, 0.18);
+	hemiLight.intensity = 0.35;
+	hemiLight.diffuse = new B.Color3(0.75, 0.72, 0.65);
+	hemiLight.groundColor = new B.Color3(0.08, 0.07, 0.06);
 
-	const dirLight = new B.DirectionalLight('dirLight', new B.Vector3(-0.5, -1, 0.5), scene);
-	dirLight.intensity = 0.8;
-	dirLight.diffuse = new B.Color3(1.0, 0.95, 0.85);
+	// Point lights for indoor illumination
+	const pointLightDefs: [string, number, number][] = [
+		['ptSouth', 0, -30],
+		['ptHub', 0, 0],
+		['ptNorth', 0, 30],
+		['ptWestFlank', -29.5, 0],
+		['ptEastFlank', 29.5, 0]
+	];
+	for (const [name, px, pz] of pointLightDefs) {
+		const pl = new B.PointLight(name, new B.Vector3(px, 5.5, pz), scene);
+		pl.intensity = 0.6;
+		pl.range = 30;
+		pl.diffuse = new B.Color3(0.95, 0.9, 0.8);
+	}
 
 	// --- Arena Map ---
 	const { spawnPoints } = createArenaMap(B, scene);

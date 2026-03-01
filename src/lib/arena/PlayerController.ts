@@ -111,9 +111,10 @@ export function createPlayerController(
 		// Squash any residual cameraDirection so Babylon's _checkInputs is a no-op
 		camera.cameraDirection.set(0, 0, 0);
 
-		// Frame-rate-independent speed (matches Babylon's internal formula)
+		// Babylon's built-in WASD speed with inertia ≈ PLAYER_SPEED * 32 units/sec.
+		// We replicate that with simple delta-time scaling.
 		const engine = scene.getEngine();
-		const speed = PLAYER_SPEED * Math.sqrt(engine.getDeltaTime() / (engine.getFps() * 100));
+		const speed = PLAYER_SPEED * 32 * engine.getDeltaTime() / 1000;
 
 		if (grounded) {
 			// --- Ground movement: full WASD control ---

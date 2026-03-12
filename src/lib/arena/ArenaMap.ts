@@ -452,14 +452,47 @@ export async function createArenaMap(
 		{ x: -29.5, z: -27, w: 2, d: 0.3, ry: 0.4 }, // West flank
 		{ x: 29.5, z: 27, w: 2, d: 0.3, ry: -0.4 }   // East flank
 	];
+	const barricadeH = 1.2;
+	// Invisible collision boxes
 	barricadeDefs.forEach((b, i) => {
-		const barricade = B.MeshBuilder.CreateBox(`barricade_${i}`, { width: b.w, height: 1.2, depth: b.d }, scene);
+		const barricade = B.MeshBuilder.CreateBox(`barricade_${i}`, { width: b.w, height: barricadeH, depth: b.d }, scene);
 		barricade.position.set(b.x, 0.6, b.z);
 		if (b.ry) barricade.rotation.y = b.ry;
-		barricade.material = barricadeMat;
+		barricade.isVisible = false;
 		barricade.checkCollisions = true;
 		barricade.isPickable = true;
 		allMeshes.push(barricade as InstanceType<BabylonNamespace['Mesh']>);
+	});
+
+	// Load wall_barrier GLB and place visual models at each barricade position
+	const barrierResult = await SceneLoader.ImportMeshAsync('', 'https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/', 'wall_barrier.glb', scene);
+	const barrierModelRoot = new B.TransformNode('barrierModelRoot', scene);
+	for (const mesh of barrierResult.meshes) {
+		if (!mesh.parent || mesh.parent === barrierResult.meshes[0]) {
+			mesh.parent = barrierModelRoot;
+		}
+		mesh.isPickable = false;
+	}
+	let barrierMin = new B.Vector3(Infinity, Infinity, Infinity);
+	let barrierMax = new B.Vector3(-Infinity, -Infinity, -Infinity);
+	for (const mesh of barrierResult.meshes) {
+		if (!(mesh as any).getBoundingInfo) continue;
+		const bi = mesh.getBoundingInfo();
+		barrierMin = B.Vector3.Minimize(barrierMin, bi.boundingBox.minimumWorld);
+		barrierMax = B.Vector3.Maximize(barrierMax, bi.boundingBox.maximumWorld);
+	}
+	const barrierSize = barrierMax.subtract(barrierMin);
+	barrierModelRoot.setEnabled(false);
+
+	barricadeDefs.forEach((b, i) => {
+		const clone = barrierModelRoot.clone(`barrierModel_${i}`, null)!;
+		clone.setEnabled(true);
+		clone.position.set(b.x, 0, b.z);
+		if (b.ry) clone.rotation.y = b.ry;
+		const sx = barrierSize.x > 0.001 ? b.w / barrierSize.x : 1;
+		const sy = barrierSize.y > 0.001 ? barricadeH / barrierSize.y : 1;
+		const sz = barrierSize.z > 0.001 ? b.d / barrierSize.z : 1;
+		clone.scaling.set(sx, sy, sz);
 	});
 
 	// ============================================================

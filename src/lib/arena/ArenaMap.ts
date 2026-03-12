@@ -38,7 +38,10 @@ export async function createArenaMap(
 
 	// --- Materials ---
 	const wallMat = new B.StandardMaterial('wallMat', scene);
-	wallMat.diffuseColor = new B.Color3(...COLOR_WALL);
+	const wallTex = new B.Texture('https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/wall_texture.png', scene);
+	wallTex.uScale = 2;
+	wallTex.vScale = 2;
+	wallMat.diffuseTexture = wallTex;
 	wallMat.specularColor = new B.Color3(0.15, 0.15, 0.14);
 
 	const floorMat = new B.StandardMaterial('floorMat', scene);

@@ -133,6 +133,12 @@ export async function createGunViewModel(
 	const restPos = root.position.clone();
 	const restRotX = 0;
 
+	// Anti-clip: pull gun back when near geometry
+	const _clipRay = new B.Ray(new B.Vector3(), new B.Vector3(), 1.2);
+	const clipMaxDist = 1.2; // ray length
+	const clipMinDist = 0.3; // distance at which gun is fully retracted
+	let clipPullback = 0;
+
 	function fireRecoil() {
 		recoilTime = 0;
 		// Alternate horizontal direction with slight randomness
@@ -144,6 +150,16 @@ export async function createGunViewModel(
 	}
 
 	function update(dt: number) {
+		// Anti-clip: cast ray forward from camera to detect nearby geometry
+		_clipRay.origin.copyFrom(camera.position);
+		camera.getDirectionToRef(B.Vector3.Forward(), _clipRay.direction);
+		const clipHit = scene.pickWithRay(_clipRay, (mesh) => mesh.checkCollisions && mesh.isPickable);
+		const targetPull = (clipHit?.hit && clipHit.distance < clipMaxDist)
+			? 1 - Math.max(clipHit.distance - clipMinDist, 0) / (clipMaxDist - clipMinDist)
+			: 0;
+		// Smooth transition
+		clipPullback += (targetPull - clipPullback) * Math.min(dt * 15, 1);
+
 		// Idle bob
 		idlePhase += dt * 1.8;
 		const bobX = Math.sin(idlePhase) * 0.003;
@@ -192,9 +208,10 @@ export async function createGunViewModel(
 			}
 		}
 
+		const pullZ = clipPullback * restPos.z * 0.85; // pull up to 85% back
 		root.position.x = restPos.x + bobX + offsetX;
 		root.position.y = restPos.y + bobY;
-		root.position.z = restPos.z + offsetZ;
+		root.position.z = restPos.z + offsetZ - pullZ;
 		root.rotation.x = restRotX + rotX;
 		root.rotation.y = rotY;
 	}

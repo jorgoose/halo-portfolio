@@ -404,7 +404,7 @@ export async function createArenaMap(
 	// Load cargo_box GLB and place visual models at each crate position
 	await import('@babylonjs/loaders/glTF');
 	const { SceneLoader } = await import('@babylonjs/core');
-	const crateResult = await SceneLoader.ImportMeshAsync('', '/cargo_box.glb', '', scene);
+	const crateResult = await SceneLoader.ImportMeshAsync('', 'https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/', 'cargo_box.glb', scene);
 
 	// Measure the loaded model's bounding box to compute scaling
 	const crateModelRoot = new B.TransformNode('crateModelRoot', scene);

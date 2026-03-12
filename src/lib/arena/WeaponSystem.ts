@@ -44,7 +44,7 @@ export function createWeaponSystem(
 		}
 
 		ammo--;
-		cooldown = FIRE_RATE;
+		cooldown += FIRE_RATE; // preserve leftover time so shots don't drift slow
 
 		const ray = player.getForwardRay();
 

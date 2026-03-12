@@ -17,7 +17,7 @@ export const SHIELD_RECHARGE_RATE = 30; // per second
 
 // Weapon
 export const WEAPON_DAMAGE = 25;
-export const FIRE_RATE = 0.05; // ~1200 RPM
+export const FIRE_RATE = 0.067; // ~900 RPM, matches Halo CE MA5B
 export const MAX_AMMO = 60;
 export const RESERVE_AMMO = 180;
 export const RELOAD_TIME = 1.5; // seconds

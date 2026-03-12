@@ -86,7 +86,7 @@ export function createWeaponSystem(
 	}
 
 	function update(dt: number) {
-		if (cooldown > 0) cooldown -= dt;
+		cooldown -= dt;
 
 		if (hitMarkerTimer > 0) {
 			hitMarkerTimer -= dt;

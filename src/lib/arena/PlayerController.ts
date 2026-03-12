@@ -49,7 +49,7 @@ export function createPlayerController(
 	camera.checkCollisions = true;
 	camera.applyGravity = false;
 	camera.ellipsoid = new B.Vector3(COLLISION_ELLIPSOID.x, COLLISION_ELLIPSOID.y, COLLISION_ELLIPSOID.z);
-	camera.ellipsoidOffset = new B.Vector3(0, -(GROUND_Y - COLLISION_ELLIPSOID.y), 0);
+	camera.ellipsoidOffset = new B.Vector3(0, COLLISION_ELLIPSOID.y * 2 - GROUND_Y, 0);
 
 	scene.collisionsEnabled = true;
 

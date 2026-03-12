@@ -91,7 +91,7 @@ export async function initGameManager(
 	}
 
 	// --- Arena Map ---
-	const { spawnPoints } = createArenaMap(B, scene);
+	const { spawnPoints } = await createArenaMap(B, scene);
 
 	// --- Player ---
 	const playerSpawn = spawnPoints.player[0];

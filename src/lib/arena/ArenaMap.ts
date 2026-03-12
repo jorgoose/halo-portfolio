@@ -18,10 +18,10 @@ import {
 	COLOR_DARK_METAL
 } from './constants';
 
-export function createArenaMap(
+export async function createArenaMap(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>
-): ArenaMapResult {
+): Promise<ArenaMapResult> {
 	const allMeshes: InstanceType<BabylonNamespace['Mesh']>[] = [];
 	const allMaterials: InstanceType<BabylonNamespace['StandardMaterial']>[] = [];
 
@@ -366,7 +366,7 @@ export function createArenaMap(
 	});
 
 	// ============================================================
-	// 6. COVER: CRATES
+	// 6. COVER: CRATES (GLB model + invisible collision boxes)
 	// ============================================================
 	const crateDefs: { x: number; z: number; w: number; h: number; d: number; ry?: number }[] = [
 		// Central hub — scattered
@@ -388,15 +388,57 @@ export function createArenaMap(
 		{ x: 12, z: 28, w: 2, h: 1.4, d: 1.5 }      // Med Bay
 	];
 	const stackBottomH = 1.3; // height of stacked pair bottom crate (index 4)
+
+	// Invisible collision boxes
 	crateDefs.forEach((c, i) => {
 		const crate = B.MeshBuilder.CreateBox(`crate_${i}`, { width: c.w, height: c.h, depth: c.d }, scene);
-		const y = i === 5 ? stackBottomH + c.h / 2 : c.h / 2; // stack top crate on bottom
+		const y = i === 5 ? stackBottomH + c.h / 2 : c.h / 2;
 		crate.position.set(c.x, y, c.z);
 		if (c.ry) crate.rotation.y = c.ry;
-		crate.material = crateMat;
+		crate.isVisible = false;
 		crate.checkCollisions = true;
 		crate.isPickable = true;
 		allMeshes.push(crate as InstanceType<BabylonNamespace['Mesh']>);
+	});
+
+	// Load cargo_box GLB and place visual models at each crate position
+	await import('@babylonjs/loaders/glTF');
+	const { SceneLoader } = await import('@babylonjs/core');
+	const crateResult = await SceneLoader.ImportMeshAsync('', '/cargo_box.glb', '', scene);
+
+	// Measure the loaded model's bounding box to compute scaling
+	const crateModelRoot = new B.TransformNode('crateModelRoot', scene);
+	for (const mesh of crateResult.meshes) {
+		if (!mesh.parent || mesh.parent === crateResult.meshes[0]) {
+			mesh.parent = crateModelRoot;
+		}
+		mesh.isPickable = false;
+	}
+	// Get combined bounding extent of loaded model
+	let modelMin = new B.Vector3(Infinity, Infinity, Infinity);
+	let modelMax = new B.Vector3(-Infinity, -Infinity, -Infinity);
+	for (const mesh of crateResult.meshes) {
+		if (!(mesh as any).getBoundingInfo) continue;
+		const bi = mesh.getBoundingInfo();
+		modelMin = B.Vector3.Minimize(modelMin, bi.boundingBox.minimumWorld);
+		modelMax = B.Vector3.Maximize(modelMax, bi.boundingBox.maximumWorld);
+	}
+	const modelSize = modelMax.subtract(modelMin);
+	// Hide the template model
+	crateModelRoot.setEnabled(false);
+
+	// Clone for each crate, scaled to match collision box dimensions
+	crateDefs.forEach((c, i) => {
+		const clone = crateModelRoot.clone(`crateModel_${i}`, null)!;
+		clone.setEnabled(true);
+		const y = i === 5 ? stackBottomH + c.h / 2 : c.h / 2;
+		clone.position.set(c.x, y - c.h / 2, c.z);
+		if (c.ry) clone.rotation.y = c.ry;
+		// Scale model to match the collision box dimensions
+		const sx = modelSize.x > 0.001 ? c.w / modelSize.x : 1;
+		const sy = modelSize.y > 0.001 ? c.h / modelSize.y : 1;
+		const sz = modelSize.z > 0.001 ? c.d / modelSize.z : 1;
+		clone.scaling.set(sx, sy, sz);
 	});
 
 	// ============================================================

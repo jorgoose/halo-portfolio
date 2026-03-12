@@ -141,8 +141,8 @@ export async function createGunViewModel(
 
 	function fireRecoil() {
 		recoilTime = 0;
-		// Alternate horizontal direction with slight randomness
-		recoilDirX = -recoilDirX * (0.8 + Math.random() * 0.4);
+		// Tiny random horizontal variation
+		recoilDirX = (Math.random() - 0.5) * 0.4;
 	}
 
 	function reloadAnim() {
@@ -170,22 +170,22 @@ export async function createGunViewModel(
 		let rotX = 0;
 		let rotY = 0;
 
-		// Recoil animation — horizontal shake with minor vertical kick
+		// Recoil animation — strong upward kick with subtle horizontal drift (Halo-style)
 		// Kick phase 0.02s, return phase 0.05s (total 0.07s, fits within fire rate)
 		if (recoilTime >= 0) {
 			recoilTime += dt;
 			if (recoilTime < 0.02) {
 				const t = recoilTime / 0.02;
-				offsetX = recoilDirX * 0.008 * t;
-				offsetZ = -0.018 * t;
-				rotX = -0.02 * t;
-				rotY = recoilDirX * 0.035 * t;
+				offsetX = recoilDirX * 0.002 * t;
+				offsetZ = -0.025 * t;
+				rotX = -0.045 * t;
+				rotY = recoilDirX * 0.006 * t;
 			} else if (recoilTime < 0.07) {
 				const t = (recoilTime - 0.02) / 0.05;
-				offsetX = recoilDirX * 0.008 * (1 - t);
-				offsetZ = -0.018 * (1 - t);
-				rotX = -0.02 * (1 - t);
-				rotY = recoilDirX * 0.035 * (1 - t);
+				offsetX = recoilDirX * 0.002 * (1 - t);
+				offsetZ = -0.025 * (1 - t);
+				rotX = -0.045 * (1 - t);
+				rotY = recoilDirX * 0.006 * (1 - t);
 			} else {
 				recoilTime = -1;
 			}

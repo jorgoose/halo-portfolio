@@ -94,6 +94,7 @@ export function createPlayerController(
 
 	const maxCamY = CEILING_HEIGHT - COLLISION_ELLIPSOID.y * 2 - 0.05;
 	const _moveVec = new B.Vector3();
+	const _downRay = new B.Ray(new B.Vector3(), new B.Vector3(0, -1, 0), CEILING_HEIGHT);
 
 	/** Returns normalized WASD direction on the XZ plane (from camera yaw). */
 	function wasdDir(): [number, number] {
@@ -143,6 +144,14 @@ export function createPlayerController(
 			}
 		}
 
+		// --- Detect surface below player via downward raycast ---
+		// Ray from player feet (camera.y - GROUND_Y = feet Y) downward
+		const feetY = camera.position.y;
+		_downRay.origin.set(camera.position.x, feetY, camera.position.z);
+		const hit = scene.pickWithRay(_downRay, (mesh) => mesh.checkCollisions && mesh.isPickable);
+		// Surface Y the player can stand on (top of crate, or floor at Y=0)
+		const surfaceY = (hit?.hit && hit.pickedPoint) ? hit.pickedPoint.y + GROUND_Y : GROUND_Y;
+
 		// --- Jump physics (vertical only) ---
 		if (jumpRequested && grounded) {
 			yVel = JUMP_VELOCITY;
@@ -159,13 +168,19 @@ export function createPlayerController(
 				yVel = 0;
 			}
 
-			if (targetY <= GROUND_Y) {
-				targetY = GROUND_Y;
+			if (targetY <= surfaceY) {
+				targetY = surfaceY;
 				yVel = 0;
 				grounded = true;
 			}
 		} else {
-			targetY = GROUND_Y;
+			// While grounded, track surface below (walk off edge of crate → fall)
+			if (surfaceY < targetY - 0.1) {
+				grounded = false;
+				yVel = 0;
+			} else {
+				targetY = surfaceY;
+			}
 		}
 
 		camera.position.y = targetY;

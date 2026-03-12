@@ -1,5 +1,5 @@
 // Player
-export const PLAYER_SPEED = 0.18;
+export const PLAYER_SPEED = 0.45;
 export const PLAYER_SPRINT_SPEED = 0.28;
 export const MOUSE_SENSITIVITY = 3000;
 export const GRAVITY_ACCEL = -0.005;

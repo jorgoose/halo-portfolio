@@ -10,7 +10,7 @@ import {
 	CEILING_HEIGHT
 } from './constants';
 
-// With the ellipsoid (offset -0.45, height 1.0), the collision body extends
+// With the ellipsoid (offset +0.55, height 1.0), the collision body extends
 // from Y=0 (feet) to Y=2.0 (head). GROUND_Y is camera Y when on the floor.
 const GROUND_Y = 1.45;
 

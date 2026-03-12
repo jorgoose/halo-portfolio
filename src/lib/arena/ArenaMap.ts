@@ -149,7 +149,7 @@ export function createArenaMap(
 	// ============================================================
 	const floor = B.MeshBuilder.CreateGround('floor', { width: ARENA_WIDTH, height: ARENA_SIZE }, scene);
 	floor.material = floorMat;
-	floor.checkCollisions = true;
+	floor.checkCollisions = false; // vertical position handled manually; floor collision eats horizontal movement
 	floor.isPickable = true;
 	allMeshes.push(floor as InstanceType<BabylonNamespace['Mesh']>);
 
@@ -160,7 +160,7 @@ export function createArenaMap(
 	ceiling.position.y = H;
 	ceiling.rotation.x = Math.PI;
 	ceiling.material = ceilingMat;
-	ceiling.checkCollisions = true;
+	ceiling.checkCollisions = false; // vertical bounds handled manually
 	ceiling.isPickable = false;
 	allMeshes.push(ceiling as InstanceType<BabylonNamespace['Mesh']>);
 

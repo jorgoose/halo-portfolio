@@ -47,7 +47,7 @@ export async function createGunViewModel(
 		mesh.isPickable = false;
 	}
 
-	const barrelTipLocal = new B.Vector3(0, 0.08, 0.47);
+	const barrelTipLocal = new B.Vector3(0, 0.18, 0.47);
 
 	// --- Ammo Counter Screen ---
 	const ammoTex = new B.DynamicTexture('ammoTex', { width: 256, height: 128 }, scene, false);

@@ -62,6 +62,7 @@ export async function createArenaMap(
 	const doorframeMat = new B.StandardMaterial('doorframeMat', scene);
 	doorframeMat.diffuseColor = new B.Color3(...COLOR_DOORFRAME);
 	doorframeMat.specularColor = new B.Color3(0.1, 0.1, 0.1);
+	doorframeMat.zOffset = -2; // render in front of walls to prevent z-fighting
 
 	const accentStripMat = new B.StandardMaterial('accentStripMat', scene);
 	accentStripMat.emissiveColor = new B.Color3(...COLOR_AMBER);

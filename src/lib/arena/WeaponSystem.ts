@@ -44,7 +44,7 @@ export function createWeaponSystem(
 		}
 
 		ammo--;
-		cooldown += FIRE_RATE; // preserve leftover time so shots don't drift slow
+		cooldown += FIRE_RATE; // carry over negative remainder for accurate timing
 
 		const ray = player.getForwardRay();
 
@@ -86,7 +86,7 @@ export function createWeaponSystem(
 	}
 
 	function update(dt: number) {
-		cooldown = Math.max(cooldown - dt, -FIRE_RATE); // clamp to prevent burst when starting to fire
+		cooldown = Math.max(cooldown - dt, -dt); // carry at most one frame of overflow
 
 		if (hitMarkerTimer > 0) {
 			hitMarkerTimer -= dt;

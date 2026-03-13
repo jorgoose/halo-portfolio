@@ -163,6 +163,7 @@ export async function initGameManager(
 					scene.activeCamera = debugCam;
 					debugCam.attachControl(canvas, true);
 					player.camera.detachControl();
+					gunViewModel.setVisible(false);
 					console.log('Debug freecam ON — WASD move, E/Q up/down, F3 to exit');
 				} else {
 					// Return to player camera
@@ -171,6 +172,7 @@ export async function initGameManager(
 					debugCam = null;
 					scene.activeCamera = player.camera;
 					player.camera.attachControl(canvas, true);
+					gunViewModel.setVisible(true);
 					console.log('Debug freecam OFF');
 				}
 			}

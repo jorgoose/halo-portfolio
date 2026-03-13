@@ -5,6 +5,7 @@ export interface GunViewModel {
 	fireRecoil: () => void;
 	reloadAnim: () => void;
 	setAmmo: (count: number) => void;
+	setVisible: (visible: boolean) => void;
 	update: (dt: number) => void;
 	reset: () => void;
 	dispose: () => void;
@@ -224,6 +225,10 @@ export async function createGunViewModel(
 		return _barrelTip;
 	}
 
+	function setVisible(visible: boolean) {
+		root.setEnabled(visible);
+	}
+
 	function reset() {
 		recoilTime = -1;
 		reloadTime = -1;
@@ -243,6 +248,7 @@ export async function createGunViewModel(
 		fireRecoil,
 		reloadAnim,
 		setAmmo,
+		setVisible,
 		update,
 		reset,
 		dispose

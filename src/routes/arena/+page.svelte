@@ -117,8 +117,18 @@
     <div class="hud-overlay">
       <!-- Crosshair -->
       <div class="crosshair" class:hit={hud.reloading === false && hud.ammo > 0}>
-        <div class="crosshair-h"></div>
-        <div class="crosshair-v"></div>
+        <svg class="reticle-svg" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Outer circle -->
+          <circle cx="24" cy="24" r="18" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+          <!-- Top tick -->
+          <line x1="24" y1="2" x2="24" y2="9" stroke="currentColor" stroke-width="1.8"/>
+          <!-- Bottom tick -->
+          <line x1="24" y1="39" x2="24" y2="46" stroke="currentColor" stroke-width="1.8"/>
+          <!-- Left tick -->
+          <line x1="2" y1="24" x2="9" y2="24" stroke="currentColor" stroke-width="1.8"/>
+          <!-- Right tick -->
+          <line x1="39" y1="24" x2="46" y2="24" stroke="currentColor" stroke-width="1.8"/>
+        </svg>
       </div>
 
       <!-- Shield Arc -->
@@ -427,36 +437,21 @@ html, body {
   font-family: 'Xolonium', Arial, sans-serif;
 }
 
-/* Crosshair */
+/* Crosshair — Halo CE AR reticle */
 .crosshair {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 24px;
-  height: 24px;
+  width: 48px;
+  height: 48px;
+  color: rgba(94, 195, 255, 0.85);
+  filter: drop-shadow(0 0 3px #5ec3ff);
 }
 
-.crosshair-h, .crosshair-v {
-  position: absolute;
-  background: rgba(94, 195, 255, 0.85);
-  box-shadow: 0 0 4px #5ec3ff;
-}
-
-.crosshair-h {
-  width: 24px;
-  height: 2px;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-}
-
-.crosshair-v {
-  width: 2px;
-  height: 24px;
-  left: 50%;
-  top: 0;
-  transform: translateX(-50%);
+.reticle-svg {
+  width: 100%;
+  height: 100%;
 }
 
 /* ===== SHIELD ARC (Halo visor-style) ===== */

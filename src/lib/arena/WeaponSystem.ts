@@ -86,7 +86,7 @@ export function createWeaponSystem(
 	}
 
 	function update(dt: number) {
-		cooldown -= dt;
+		cooldown = Math.max(cooldown - dt, -FIRE_RATE); // clamp to prevent burst when starting to fire
 
 		if (hitMarkerTimer > 0) {
 			hitMarkerTimer -= dt;

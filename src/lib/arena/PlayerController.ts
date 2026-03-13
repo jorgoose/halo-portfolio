@@ -131,15 +131,10 @@ export function createPlayerController(
 			airDirX = dx;
 			airDirZ = dz;
 		} else {
-			// --- Air movement: momentum + slight nudge ---
-			_moveVec.set(airDirX * speed * AIR_MOMENTUM, 0, airDirZ * speed * AIR_MOMENTUM);
-
-			// Small air control for minor corrections
+			// --- Air movement: full WASD control (Halo-style) ---
 			const [dx, dz] = wasdDir();
-			_moveVec.x += dx * speed * AIR_CONTROL;
-			_moveVec.z += dz * speed * AIR_CONTROL;
-
-			if (_moveVec.lengthSquared() > 0.00001) {
+			if (dx !== 0 || dz !== 0) {
+				_moveVec.set(dx * speed, 0, dz * speed);
 				(camera as any)._collideWithWorld(_moveVec);
 			}
 		}

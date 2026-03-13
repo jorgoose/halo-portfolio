@@ -131,10 +131,15 @@ export function createPlayerController(
 			airDirX = dx;
 			airDirZ = dz;
 		} else {
-			// --- Air movement: full WASD control (Halo-style) ---
+			// --- Air movement: carry full ground momentum, minimal steering ---
+			_moveVec.set(airDirX * speed, 0, airDirZ * speed);
+
+			// Tiny air control for minor corrections only
 			const [dx, dz] = wasdDir();
-			if (dx !== 0 || dz !== 0) {
-				_moveVec.set(dx * speed, 0, dz * speed);
+			_moveVec.x += dx * speed * AIR_CONTROL;
+			_moveVec.z += dz * speed * AIR_CONTROL;
+
+			if (_moveVec.lengthSquared() > 0.00001) {
 				(camera as any)._collideWithWorld(_moveVec);
 			}
 		}

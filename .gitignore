@@ -24,3 +24,8 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 .vercel
+
+# Large arena assets (served from R2 in prod, downloaded locally for dev)
+static/ar_model.glb
+static/floor_texture.png
+static/wall_barrier.glb

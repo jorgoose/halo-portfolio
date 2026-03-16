@@ -1,4 +1,5 @@
 import type { BabylonNamespace, ArenaMapResult } from './types';
+import { assetUrl, assetBaseUrl } from './assetUrl';
 import {
 	ARENA_WIDTH,
 	ARENA_SIZE,
@@ -38,14 +39,14 @@ export async function createArenaMap(
 
 	// --- Materials ---
 	const wallMat = new B.StandardMaterial('wallMat', scene);
-	const wallTex = new B.Texture('https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/wall_texture.png', scene);
+	const wallTex = new B.Texture(assetUrl('wall_texture.png'), scene);
 	wallTex.uScale = 2;
 	wallTex.vScale = 2;
 	wallMat.diffuseTexture = wallTex;
 	wallMat.specularColor = new B.Color3(0.15, 0.15, 0.14);
 
 	const floorMat = new B.StandardMaterial('floorMat', scene);
-	const floorTex = new B.Texture('https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/floor_texture.png', scene);
+	const floorTex = new B.Texture(assetUrl('floor_texture.png'), scene);
 	floorTex.uScale = 8;
 	floorTex.vScale = 12;
 	floorMat.diffuseTexture = floorTex;
@@ -411,7 +412,7 @@ export async function createArenaMap(
 	// Load cargo_box GLB and place visual models at each crate position
 	await import('@babylonjs/loaders/glTF');
 	const { SceneLoader } = await import('@babylonjs/core');
-	const crateResult = await SceneLoader.ImportMeshAsync('', 'https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/', 'cargo_box.glb', scene);
+	const crateResult = await SceneLoader.ImportMeshAsync('', assetBaseUrl(), 'cargo_box.glb', scene);
 
 	// Measure the loaded model's bounding box to compute scaling
 	const crateModelRoot = new B.TransformNode('crateModelRoot', scene);
@@ -472,7 +473,7 @@ export async function createArenaMap(
 	});
 
 	// Load wall_barrier GLB and place visual models at each barricade position
-	const barrierResult = await SceneLoader.ImportMeshAsync('', 'https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/', 'wall_barrier.glb', scene);
+	const barrierResult = await SceneLoader.ImportMeshAsync('', assetBaseUrl(), 'wall_barrier.glb', scene);
 	const barrierModelRoot = new B.TransformNode('barrierModelRoot', scene);
 	for (const mesh of barrierResult.meshes) {
 		if (!mesh.parent || mesh.parent === barrierResult.meshes[0]) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import type { HudSnapshot } from '$lib/arena/types';
   import type { GameManager } from '$lib/arena/GameManager';
 
@@ -71,6 +71,10 @@
     }
   });
 
+  onMount(() => {
+    engage();
+  });
+
   $: shieldPct = (hud.shield / hud.maxShield) * 100;
   $: healthPct = (hud.health / hud.maxHealth) * 100;
   $: shieldDepleted = shieldPct <= 0 && !hud.shieldRecharging;
@@ -102,11 +106,8 @@
       <p class="arena-subtitle">TRAINING SIMULATION</p>
       <div class="status-indicator">
         <span class="status-dot"></span>
-        SYSTEMS ONLINE
+        {engineLoading ? 'LOADING SIMULATION...' : 'SYSTEMS ONLINE'}
       </div>
-      <button class="engage-btn" on:click={engage} disabled={engineLoading}>
-        {engineLoading ? 'LOADING...' : 'ENGAGE'}
-      </button>
     </div>
   {/if}
 

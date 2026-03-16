@@ -1,4 +1,5 @@
 import type { BabylonNamespace } from './types';
+import { assetBaseUrl } from './assetUrl';
 
 export interface GunViewModel {
 	barrelTip: InstanceType<BabylonNamespace['Vector3']>;
@@ -30,7 +31,7 @@ export async function createGunViewModel(
 	// Load GLB model from R2
 	const result = await SceneLoader.ImportMeshAsync(
 		'',
-		'https://pub-cfd1b536da7f445ea0edcd97b6b9b139.r2.dev/',
+		assetBaseUrl(),
 		'ar_model.glb',
 		scene
 	);

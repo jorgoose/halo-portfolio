@@ -1,38 +1,41 @@
-# sv
+# Halo Portfolio
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A Halo-themed interactive portfolio site with a playable FPS arena mini-game, built with SvelteKit and Babylon.js.
 
-## Creating a project
+## Arena
 
-If you're seeing this, you've probably already done this step. Congrats!
+The site includes a fully playable browser-based FPS arena inspired by Halo CE. Features include:
+
+- First-person movement with Halo-style air control and momentum
+- Assault rifle with 900 RPM fire rate, recoil, and reload mechanics
+- Shield/health system with recharging shields
+- AI enemies
+- Halo-style HUD (shield arc, health segments, ammo counter, kill tracker)
+- 3D environment with textured walls, floors, cargo crates, and barricades
+
+## 3D Asset Generation (huragok)
+
+Arena assets can be generated using [huragok](https://github.com/jorgoose/huragok), a CLI tool that turns text descriptions into game-ready 3D models.
 
 ```bash
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+huragok create "sci-fi cargo crate, metal panels, glowing blue indicators" --output static/cargo_crate.glb
 ```
 
-## Developing
+The pipeline: text prompt → concept image (OpenAI DALL-E 3) → 3D model (Tencent Hunyuan3D) → .glb file ready to load in the arena.
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Development
 
 ```bash
+npm install
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
+Assets are loaded from local `static/` in dev and from a Cloudflare R2 bucket in production (see `src/lib/arena/assetUrl.ts`).
 
-To create a production version of your app:
+## Tech stack
 
-```bash
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+- **Frontend:** SvelteKit, TypeScript
+- **3D Engine:** Babylon.js
+- **Asset Generation:** [huragok](https://github.com/jorgoose/huragok) (Go CLI — OpenAI + Hunyuan3D)
+- **Hosting:** Vercel
+- **Assets:** Cloudflare R2

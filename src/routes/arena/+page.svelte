@@ -21,7 +21,8 @@
     reloading: false,
     shieldRecharging: false,
     gameOver: false,
-    paused: false
+    paused: false,
+    weaponName: 'MA5B'
   };
 
   function onHudUpdate(snapshot: HudSnapshot) {
@@ -199,13 +200,16 @@
 
       <!-- Ammo Counter -->
       <div class="ammo-container">
-        {#if hud.reloading}
-          <div class="reload-text">RELOADING</div>
-        {:else}
-          <div class="ammo-current">{hud.ammo}</div>
-          <div class="ammo-divider">/</div>
-          <div class="ammo-reserve">{hud.reserveAmmo}</div>
-        {/if}
+        <div class="weapon-name">{hud.weaponName}</div>
+        <div class="ammo-row">
+          {#if hud.reloading}
+            <div class="reload-text">RELOADING</div>
+          {:else}
+            <div class="ammo-current">{hud.ammo}</div>
+            <div class="ammo-divider">/</div>
+            <div class="ammo-reserve">{hud.reserveAmmo}</div>
+          {/if}
+        </div>
       </div>
 
       <!-- Kill Counter -->
@@ -565,8 +569,22 @@ html, body {
   bottom: 32px;
   right: 40px;
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.ammo-row {
+  display: flex;
   align-items: baseline;
   gap: 4px;
+}
+
+.weapon-name {
+  font-size: 0.6rem;
+  color: rgba(94, 195, 255, 0.5);
+  letter-spacing: 0.2em;
+  margin-bottom: 4px;
 }
 
 .ammo-current {

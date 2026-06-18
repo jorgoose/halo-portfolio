@@ -118,7 +118,13 @@ export function createPlayerController(
 		// Babylon's built-in WASD speed with inertia ≈ PLAYER_SPEED * 32 units/sec.
 		// We replicate that with simple delta-time scaling.
 		const engine = scene.getEngine();
-		const speed = PLAYER_SPEED * 32 * engine.getDeltaTime() / 1000;
+		// Clamp dt so a stall (tab refocus, GC pause) can't launch the player.
+		const dt = Math.min(engine.getDeltaTime(), 50) / 1000;
+		// Frame-equivalent factor: 1.0 at 60fps. Scales the per-frame vertical
+		// integration below so jump/gravity feel is identical at 60fps but stays
+		// consistent at any refresh rate (120/144Hz) instead of being faster.
+		const n = dt * 60;
+		const speed = PLAYER_SPEED * 32 * dt;
 
 		if (grounded) {
 			// --- Ground movement: full WASD control ---
@@ -160,8 +166,8 @@ export function createPlayerController(
 		}
 
 		if (!grounded) {
-			yVel += GRAVITY_ACCEL;
-			targetY += yVel;
+			yVel += GRAVITY_ACCEL * n;
+			targetY += yVel * n;
 
 			if (targetY > maxCamY) {
 				targetY = maxCamY;

@@ -11,7 +11,8 @@ export function createHudState(callback: HudCallback) {
 		'kills',
 		'paused',
 		'gameOver',
-		'shieldRecharging'
+		'shieldRecharging',
+		'weaponName'
 	];
 	const throttledKeySet = new Set(throttledKeys);
 	const immediateKeySet = new Set(immediateKeys);
@@ -28,7 +29,8 @@ export function createHudState(callback: HudCallback) {
 		reloading: false,
 		shieldRecharging: false,
 		gameOver: false,
-		paused: false
+		paused: false,
+		weaponName: 'MA5B'
 	};
 
 	let lastEmitAt = 0;

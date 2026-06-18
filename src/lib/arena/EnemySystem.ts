@@ -156,6 +156,9 @@ export function createEnemySystem(
 
 	function update(dt: number, playerPos: InstanceType<BabylonNamespace['Vector3']>): number {
 		let playerDamage = 0;
+		// Frame-equivalent factor: 1.0 at 60fps. Keeps enemy travel speed constant
+		// regardless of refresh rate (ENEMY_SPEED was authored as per-frame units).
+		const frameScale = dt * 60;
 
 		for (const enemy of enemies) {
 			if (enemy.state === EnemyState.DEAD) {
@@ -193,7 +196,7 @@ export function createEnemySystem(
 						enemy.currentNavIndex = (enemy.currentNavIndex + 1) % spawnPoints.nav.length;
 					} else {
 						_toNav.normalizeToRef(_moveDir);
-						_moveDir.scaleInPlace(ENEMY_SPEED);
+						_moveDir.scaleInPlace(ENEMY_SPEED * frameScale);
 						enemy.mesh.position.addInPlace(_moveDir);
 						// Face movement direction
 						_lookAt.copyFrom(enemyPos);
@@ -222,7 +225,7 @@ export function createEnemySystem(
 					}
 
 					_toPlayer.normalizeToRef(_moveDir);
-					_moveDir.scaleInPlace(ENEMY_SPEED);
+					_moveDir.scaleInPlace(ENEMY_SPEED * frameScale);
 					enemy.mesh.position.addInPlace(_moveDir);
 					_lookAt.set(playerPos.x, enemyPos.y, playerPos.z);
 					enemy.mesh.lookAt(_lookAt);

@@ -1,6 +1,33 @@
 import type { BabylonNamespace } from './types';
 import { assetBaseUrl } from './assetUrl';
 
+export interface GunViewModelConfig {
+	modelFile: string;
+	rootPosition: [number, number, number];
+	modelScale: [number, number, number];
+	modelRotation: [number, number, number];
+	barrelTipLocal: [number, number, number];
+	hasAmmoScreen: boolean;
+}
+
+export const PRIMARY_GUN_CONFIG: GunViewModelConfig = {
+	modelFile: 'ar_model.glb',
+	rootPosition: [0.3, -0.3, 0.7],
+	modelScale: [1, 1, 1],
+	modelRotation: [0, Math.PI, 0],
+	barrelTipLocal: [0, 0.20, 0.72],
+	hasAmmoScreen: true
+};
+
+export const SECONDARY_GUN_CONFIG: GunViewModelConfig = {
+	modelFile: 'banana_blaster.glb',
+	rootPosition: [0.25, -0.35, 0.6],
+	modelScale: [0.4, 0.4, 0.4],
+	modelRotation: [0, Math.PI, 0],
+	barrelTipLocal: [0, 0.15, 0.65],
+	hasAmmoScreen: false
+};
+
 export interface GunViewModel {
 	barrelTip: InstanceType<BabylonNamespace['Vector3']>;
 	fireRecoil: () => void;
@@ -15,32 +42,33 @@ export interface GunViewModel {
 export async function createGunViewModel(
 	B: BabylonNamespace,
 	scene: InstanceType<BabylonNamespace['Scene']>,
-	camera: InstanceType<BabylonNamespace['FreeCamera']>
+	camera: InstanceType<BabylonNamespace['FreeCamera']>,
+	config: GunViewModelConfig = PRIMARY_GUN_CONFIG
 ): Promise<GunViewModel> {
 
 	// Root node parented to camera
-	const root = new B.TransformNode('gunRoot', scene);
+	const root = new B.TransformNode('gunRoot_' + config.modelFile, scene);
 	root.parent = camera;
-	root.position = new B.Vector3(0.3, -0.3, 0.7);
+	root.position = new B.Vector3(...config.rootPosition);
 
 	// Register GLTF loader plugin
 	await import('@babylonjs/loaders/glTF');
 
 	const { SceneLoader } = await import('@babylonjs/core');
 
-	// Load GLB model from R2
+	// Load GLB model
 	const result = await SceneLoader.ImportMeshAsync(
 		'',
 		assetBaseUrl(),
-		'ar_model.glb',
+		config.modelFile,
 		scene
 	);
 
 	// Parent all loaded meshes under root, make non-pickable
-	const loadedRoot = new B.TransformNode('gunModelRoot', scene);
+	const loadedRoot = new B.TransformNode('gunModelRoot_' + config.modelFile, scene);
 	loadedRoot.parent = root;
-	loadedRoot.scaling = new B.Vector3(1, 1, 1);
-	loadedRoot.rotation = new B.Vector3(0, Math.PI, 0); // face forward
+	loadedRoot.scaling = new B.Vector3(...config.modelScale);
+	loadedRoot.rotation = new B.Vector3(...config.modelRotation);
 
 	for (const mesh of result.meshes) {
 		if (!mesh.parent) {
@@ -49,43 +77,15 @@ export async function createGunViewModel(
 		mesh.isPickable = false;
 	}
 
-	const barrelTipLocal = new B.Vector3(0, 0.20, 0.72);
+	const barrelTipLocal = new B.Vector3(...config.barrelTipLocal);
 
-	// --- Ammo Counter Screen ---
-	const ammoTex = new B.DynamicTexture('ammoTex', { width: 256, height: 128 }, scene, false);
-	ammoTex.hasAlpha = true;
-
-	const ammoMat = new B.StandardMaterial('ammoScreenMat', scene);
-	ammoMat.emissiveTexture = ammoTex;
-	ammoMat.opacityTexture = ammoTex;
-	ammoMat.diffuseColor = new B.Color3(0, 0, 0);
-	ammoMat.specularColor = new B.Color3(0, 0, 0);
-	ammoMat.disableLighting = true;
-	ammoMat.backFaceCulling = false;
-	ammoMat.freeze();
-
-	const ammoScreenHeight = 0.04;
-	const ammoScreenAngle = Math.PI / 7;
-	const ammoPlane = B.MeshBuilder.CreatePlane(
-		'ammoScreen',
-		{ width: 0.045, height: ammoScreenHeight },
-		scene
-	);
-	ammoPlane.parent = root;
-	// Offset center so top edge stays anchored at (0, 0.325, -0.18)
-	const halfGrowth = (ammoScreenHeight - 0.022) / 2;
-	ammoPlane.position = new B.Vector3(
-		0.0,
-		0.3 - halfGrowth * Math.cos(ammoScreenAngle),
-		-0.187 + halfGrowth * Math.sin(ammoScreenAngle)
-	);
-	ammoPlane.rotation = new B.Vector3(ammoScreenAngle, 0, 0);
-	ammoPlane.material = ammoMat;
-	ammoPlane.isPickable = false;
-
+	// --- Ammo Counter Screen (primary AR only) ---
+	let ammoTex: InstanceType<BabylonNamespace['DynamicTexture']> | null = null;
+	let ammoPlane: InstanceType<BabylonNamespace['Mesh']> | null = null;
 	let currentAmmo = 32;
 
 	function drawAmmoCount(count: number) {
+		if (!ammoTex) return;
 		const ctx = ammoTex.getContext() as unknown as CanvasRenderingContext2D;
 		ctx.clearRect(0, 0, 256, 128);
 
@@ -97,7 +97,6 @@ export async function createGunViewModel(
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
 
-		// Inner glow pass
 		ctx.save();
 		ctx.shadowColor = glowColor;
 		ctx.shadowBlur = 6;
@@ -107,7 +106,6 @@ export async function createGunViewModel(
 		ctx.fillText(text, 128, 66);
 		ctx.restore();
 
-		// Bright core text on top
 		ctx.fillStyle = '#ffffff';
 		ctx.globalAlpha = 0.55;
 		ctx.fillText(text, 128, 66);
@@ -123,8 +121,39 @@ export async function createGunViewModel(
 		}
 	}
 
-	// Initial draw
-	drawAmmoCount(currentAmmo);
+	if (config.hasAmmoScreen) {
+		ammoTex = new B.DynamicTexture('ammoTex', { width: 256, height: 128 }, scene, false);
+		ammoTex.hasAlpha = true;
+
+		const ammoMat = new B.StandardMaterial('ammoScreenMat', scene);
+		ammoMat.emissiveTexture = ammoTex;
+		ammoMat.opacityTexture = ammoTex;
+		ammoMat.diffuseColor = new B.Color3(0, 0, 0);
+		ammoMat.specularColor = new B.Color3(0, 0, 0);
+		ammoMat.disableLighting = true;
+		ammoMat.backFaceCulling = false;
+		ammoMat.freeze();
+
+		const ammoScreenHeight = 0.04;
+		const ammoScreenAngle = Math.PI / 7;
+		ammoPlane = B.MeshBuilder.CreatePlane(
+			'ammoScreen',
+			{ width: 0.045, height: ammoScreenHeight },
+			scene
+		);
+		ammoPlane.parent = root;
+		const halfGrowth = (ammoScreenHeight - 0.022) / 2;
+		ammoPlane.position = new B.Vector3(
+			0.0,
+			0.3 - halfGrowth * Math.cos(ammoScreenAngle),
+			-0.187 + halfGrowth * Math.sin(ammoScreenAngle)
+		);
+		ammoPlane.rotation = new B.Vector3(ammoScreenAngle, 0, 0);
+		ammoPlane.material = ammoMat;
+		ammoPlane.isPickable = false;
+
+		drawAmmoCount(currentAmmo);
+	}
 
 	// --- Animation State ---
 	let recoilTime = -1;

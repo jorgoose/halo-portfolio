@@ -15,12 +15,26 @@ export const MAX_SHIELD = 100;
 export const SHIELD_RECHARGE_DELAY = 4.0; // seconds
 export const SHIELD_RECHARGE_RATE = 30; // per second
 
-// Weapon
+// Firing model: every FIRE_RATE constant below is the *period* between shots in
+// seconds (not a rate), so cyclic rate = 60 / FIRE_RATE RPM. The game loop fires
+// every round owed within a frame (sub-frame "catch-up"), keeping the effective
+// rate exact at any frame rate — bounded to MAX_SHOTS_PER_FRAME rounds/frame so a
+// stall can't unleash a burst. Sustained rate is lower than cyclic once reloads count.
+export const MAX_SHOTS_PER_FRAME = 8;
+
+// Weapon (primary — assault rifle)
 export const WEAPON_DAMAGE = 25;
-export const FIRE_RATE = 0.067; // ~900 RPM, matches Halo CE MA5B
+export const FIRE_RATE = 0.05; // 0.05s period → 1200 RPM cyclic (punchier than the authentic ~900 RPM MA5B)
 export const MAX_AMMO = 60;
 export const RESERVE_AMMO = 180;
 export const RELOAD_TIME = 1.5; // seconds
+
+// Weapon (secondary — banana blaster)
+export const SECONDARY_WEAPON_DAMAGE = 60;
+export const SECONDARY_FIRE_RATE = 0.4; // 0.4s period → 150 RPM cap; semi-auto (one shot per click)
+export const SECONDARY_MAX_AMMO = 12;
+export const SECONDARY_RESERVE_AMMO = 36;
+export const SECONDARY_RELOAD_TIME = 1.8;
 
 // Enemies
 export const ENEMY_HEALTH = 100;

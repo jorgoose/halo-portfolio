@@ -10,10 +10,35 @@ import { createEnemySystem } from './EnemySystem';
 import type { EnemySystem } from './EnemySystem';
 import { createVFXManager } from './VFXManager';
 import type { VFXManager } from './VFXManager';
-import { createGunViewModel } from './GunViewModel';
+import { createGunViewModel, PRIMARY_GUN_CONFIG, SECONDARY_GUN_CONFIG } from './GunViewModel';
 import type { GunViewModel } from './GunViewModel';
+import type { WeaponConfig } from './WeaponSystem';
 import { createHudState } from './HudState';
-import { FOG_COLOR, FOG_DENSITY, WEAPON_DAMAGE } from './constants';
+import {
+	FOG_COLOR, FOG_DENSITY,
+	WEAPON_DAMAGE, FIRE_RATE, MAX_AMMO, RESERVE_AMMO, RELOAD_TIME,
+	SECONDARY_WEAPON_DAMAGE, SECONDARY_FIRE_RATE, SECONDARY_MAX_AMMO,
+	SECONDARY_RESERVE_AMMO, SECONDARY_RELOAD_TIME,
+	MAX_SHOTS_PER_FRAME
+} from './constants';
+
+const PRIMARY_WEAPON_CONFIG: WeaponConfig = {
+	damage: WEAPON_DAMAGE,
+	fireRate: FIRE_RATE,
+	maxAmmo: MAX_AMMO,
+	reserveAmmo: RESERVE_AMMO,
+	reloadTime: RELOAD_TIME,
+	automatic: true
+};
+
+const SECONDARY_WEAPON_CONFIG: WeaponConfig = {
+	damage: SECONDARY_WEAPON_DAMAGE,
+	fireRate: SECONDARY_FIRE_RATE,
+	maxAmmo: SECONDARY_MAX_AMMO,
+	reserveAmmo: SECONDARY_RESERVE_AMMO,
+	reloadTime: SECONDARY_RELOAD_TIME,
+	automatic: false
+};
 
 export interface GameManager {
 	dispose: () => void;
@@ -52,8 +77,8 @@ export async function initGameManager(
 
 	const enemiesParam =
 		typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('enemies') : null;
-	// Temporary perf mode: disable enemies by default; re-enable with ?enemies=on
-	const enemiesEnabled = enemiesParam === 'on';
+	// Enemies are on by default; ?enemies=off disables them (e.g. for perf debugging).
+	const enemiesEnabled = enemiesParam !== 'off';
 
 	// --- Engine & Scene ---
 	const engine = await BABYLON.EngineFactory.CreateAsync(canvas, {
@@ -63,6 +88,9 @@ export async function initGameManager(
 	const scene = new B.Scene(engine);
 	scene.clearColor = new B.Color4(...FOG_COLOR, 1);
 	scene.skipPointerMovePicking = true;
+	// Initial render resolution; an adaptive controller (see render loop below)
+	// tunes this at runtime to hold a smooth frame rate while reclaiming sharpness
+	// whenever the GPU has headroom.
 	engine.setHardwareScalingLevel(1.65);
 	scene.performancePriority = BABYLON.ScenePerformancePriority.Aggressive;
 	scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
@@ -100,8 +128,39 @@ export async function initGameManager(
 	// --- Systems ---
 	let healthShield: HealthShieldSystem = createHealthShieldSystem();
 	const vfxManager: VFXManager = createVFXManager(B, scene, { lowQuality: true });
-	let gunViewModel: GunViewModel = await createGunViewModel(B, scene, player.camera);
-	let weapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, gunViewModel);
+
+	// Primary weapon (assault rifle)
+	const primaryGun: GunViewModel = await createGunViewModel(B, scene, player.camera, PRIMARY_GUN_CONFIG);
+	const primaryWeapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, primaryGun, PRIMARY_WEAPON_CONFIG);
+
+	// Secondary weapon (banana blaster)
+	const secondaryGun: GunViewModel = await createGunViewModel(B, scene, player.camera, SECONDARY_GUN_CONFIG);
+	const secondaryWeapon: WeaponSystem = createWeaponSystem(B, scene, player, vfxManager, secondaryGun, SECONDARY_WEAPON_CONFIG);
+	secondaryGun.setVisible(false);
+
+	const weaponNames = ['MA5B', 'BANANA BLASTER'];
+	let activeWeaponIndex = 0;
+	let gunViewModel: GunViewModel = primaryGun;
+	let weapon: WeaponSystem = primaryWeapon;
+
+	function switchWeapon(index: number) {
+		if (index === activeWeaponIndex) return;
+		// Hide current
+		gunViewModel.setVisible(false);
+		// Switch
+		activeWeaponIndex = index;
+		if (index === 0) {
+			gunViewModel = primaryGun;
+			weapon = primaryWeapon;
+		} else {
+			gunViewModel = secondaryGun;
+			weapon = secondaryWeapon;
+		}
+		// Show new
+		gunViewModel.setVisible(true);
+		gunViewModel.reset();
+		firing = false; // stop firing on switch
+	}
 	let enemySystem: EnemySystem = enemiesEnabled
 		? createEnemySystem(B, scene, spawnPoints, vfxManager, {
 				lowQuality: false
@@ -126,10 +185,14 @@ export async function initGameManager(
 
 	// --- Input ---
 	let firing = false;
+	// Rising-edge flag: set on trigger press, consumed once per game frame. Drives
+	// semi-auto weapons (one shot per press) without affecting full-auto.
+	let triggerJustPressed = false;
 
 	scene.onPointerObservable.add((pointerInfo) => {
 		if (pointerInfo.type === B.PointerEventTypes.POINTERDOWN && pointerInfo.event.button === 0) {
 			firing = true;
+			triggerJustPressed = true;
 		}
 		if (pointerInfo.type === B.PointerEventTypes.POINTERUP && pointerInfo.event.button === 0) {
 			firing = false;
@@ -142,6 +205,12 @@ export async function initGameManager(
 		if (kbInfo.type === B.KeyboardEventTypes.KEYDOWN) {
 			if (kbInfo.event.code === 'KeyR' && !gameOver) {
 				weapon.reload();
+			}
+			if (kbInfo.event.code === 'Digit1' && !gameOver) {
+				switchWeapon(0);
+			}
+			if (kbInfo.event.code === 'Digit2' && !gameOver) {
+				switchWeapon(1);
 			}
 			if (kbInfo.event.code === 'F3') {
 				kbInfo.event.preventDefault();
@@ -196,17 +265,34 @@ export async function initGameManager(
 		const dt = Math.min(engine.getDeltaTime(), 50) / 1000;
 
 		healthShield.update(dt);
-		weapon.update(dt);
+		// Only let the cooldown bank rounds (for catch-up) while a full-auto trigger
+		// is genuinely held; semi-auto and idle just drain toward "ready".
+		weapon.update(dt, firing && weapon.automatic);
 		gunViewModel.update(dt);
 
-		// Full-auto: fire every frame while mouse held (cooldown gates rate)
+		// Discharge rounds. Full-auto fires every round the cooldown owes this frame
+		// (sub-frame catch-up, bounded by MAX_SHOTS_PER_FRAME) so the rate is exact at
+		// any frame rate. Semi-auto fires once per trigger press (rising edge), still
+		// gated by the cooldown inside fire().
 		if (firing) {
-			const result = weapon.fire();
-			if (result.hit && result.enemyMesh) {
-				const killed = enemySystem.damageEnemy(result.enemyMesh, WEAPON_DAMAGE);
-				if (killed) kills++;
+			if (weapon.automatic) {
+				for (let s = 0; s < MAX_SHOTS_PER_FRAME; s++) {
+					const result = weapon.fire();
+					if (!result.fired) break;
+					if (result.hit && result.enemyMesh) {
+						const killed = enemySystem.damageEnemy(result.enemyMesh, weapon.damage);
+						if (killed) kills++;
+					}
+				}
+			} else if (triggerJustPressed) {
+				const result = weapon.fire();
+				if (result.fired && result.hit && result.enemyMesh) {
+					const killed = enemySystem.damageEnemy(result.enemyMesh, weapon.damage);
+					if (killed) kills++;
+				}
 			}
 		}
+		triggerJustPressed = false;
 
 		gunViewModel.setAmmo(weapon.ammo);
 
@@ -227,22 +313,53 @@ export async function initGameManager(
 			health: healthShield.health,
 			shield: healthShield.shield,
 			ammo: weapon.ammo,
+			maxAmmo: weapon.maxAmmo,
 			reserveAmmo: weapon.reserveAmmo,
 			reloading: weapon.reloading,
 			shieldRecharging: healthShield.shieldRecharging,
 			kills,
-			gameOver
+			gameOver,
+			weaponName: weaponNames[activeWeaponIndex]
 		});
 	});
 
 	// --- Render Loop ---
-	let lastFrameAt = performance.now();
-	const minFrameIntervalMs = 1000 / 60;
+	// Render once per vsync. The previous build gated this with a manual 16.67ms
+	// timer, but rAF jitter on 60Hz panels regularly pushed the delta just under
+	// the threshold and dropped a whole vsync — producing visible ~30fps judder.
+	// All simulation is now delta-time based, so rendering every refresh is both
+	// smooth and correct at 60/120/144Hz.
+
+	// Adaptive resolution: defend the frame rate on weak GPUs, reclaim sharpness
+	// on strong ones. hardwareScalingLevel is inverse to resolution (higher =
+	// fewer pixels = blurrier but cheaper).
+	const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+	// On dense displays, full backing-store resolution is wasteful; cap how sharp
+	// we'll push so phones/Retina don't burn GPU/battery chasing invisible detail.
+	const MIN_SCALE = dpr >= 2 ? Math.min(dpr * 0.6, 1.5) : 1.0; // sharpest allowed
+	const MAX_SCALE = 2.0; // blurriest allowed — emergency floor to avoid lag
+	let hwScale = 1.65;
+	let lastAdaptAt = performance.now();
+
+	function adaptResolution(now: number) {
+		if (now - lastAdaptAt < 1000) return; // re-evaluate ~once per second
+		lastAdaptAt = now;
+		const fps = engine.getFps();
+		if (!isFinite(fps) || fps <= 0) return;
+		if (fps < 55 && hwScale < MAX_SCALE) {
+			// Struggling — drop resolution quickly to recover headroom.
+			hwScale = Math.min(MAX_SCALE, hwScale + 0.2);
+			engine.setHardwareScalingLevel(hwScale);
+		} else if (fps > 58 && hwScale > MIN_SCALE) {
+			// Comfortable — reclaim sharpness gently to avoid visible popping.
+			hwScale = Math.max(MIN_SCALE, hwScale - 0.1);
+			engine.setHardwareScalingLevel(hwScale);
+		}
+	}
+
 	engine.runRenderLoop(() => {
-		const now = performance.now();
-		if (now - lastFrameAt < minFrameIntervalMs) return;
-		lastFrameAt += minFrameIntervalMs;
-		if (now - lastFrameAt > minFrameIntervalMs) lastFrameAt = now;
+		if (disposed) return;
+		adaptResolution(performance.now());
 		scene.render();
 	});
 
@@ -254,11 +371,20 @@ export async function initGameManager(
 		gameOver = false;
 		paused = false;
 		firing = false;
+		triggerJustPressed = false;
 		kills = 0;
 
 		healthShield.reset();
-		weapon.reset();
-		gunViewModel.reset();
+		primaryWeapon.reset();
+		secondaryWeapon.reset();
+		primaryGun.reset();
+		secondaryGun.reset();
+		// Reset to primary weapon
+		secondaryGun.setVisible(false);
+		primaryGun.setVisible(true);
+		activeWeaponIndex = 0;
+		gunViewModel = primaryGun;
+		weapon = primaryWeapon;
 		enemySystem.reset();
 
 		// Reset player position
@@ -271,12 +397,14 @@ export async function initGameManager(
 			health: healthShield.health,
 			shield: healthShield.shield,
 			ammo: weapon.ammo,
+			maxAmmo: weapon.maxAmmo,
 			reserveAmmo: weapon.reserveAmmo,
 			reloading: false,
 			shieldRecharging: false,
 			kills: 0,
 			gameOver: false,
-			paused: false
+			paused: false,
+			weaponName: weaponNames[0]
 		});
 	}
 
@@ -286,10 +414,12 @@ export async function initGameManager(
 		window.removeEventListener('resize', onResize);
 		hud.dispose?.();
 		player.dispose();
-		gunViewModel.dispose();
+		primaryGun.dispose();
+		secondaryGun.dispose();
 		enemySystem.dispose();
 		vfxManager.dispose();
-		weapon.dispose();
+		primaryWeapon.dispose();
+		secondaryWeapon.dispose();
 		scene.dispose();
 		engine.dispose();
 	}

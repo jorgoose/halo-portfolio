@@ -2,23 +2,37 @@ import type { BabylonNamespace } from './types';
 import type { VFXManager } from './VFXManager';
 import type { PlayerController } from './PlayerController';
 import type { GunViewModel } from './GunViewModel';
-import {
-	WEAPON_DAMAGE,
-	FIRE_RATE,
-	MAX_AMMO,
-	RESERVE_AMMO,
-	RELOAD_TIME,
-	HIT_MARKER_DURATION
-} from './constants';
+import { HIT_MARKER_DURATION, MAX_SHOTS_PER_FRAME } from './constants';
+
+export interface WeaponConfig {
+	damage: number;
+	/** Seconds between shots — the fire *period*, not a rate. Cyclic RPM = 60 / fireRate. */
+	fireRate: number;
+	maxAmmo: number;
+	reserveAmmo: number;
+	reloadTime: number;
+	/** true = full-auto (hold to fire); false = semi-auto (one shot per trigger press). */
+	automatic: boolean;
+}
+
+/** Outcome of a single fire() call. `fired` is true only when a round discharged. */
+export interface FireResult {
+	fired: boolean;
+	hit: boolean;
+	enemyMesh: InstanceType<BabylonNamespace['AbstractMesh']> | null;
+}
 
 export interface WeaponSystem {
 	ammo: number;
 	reserveAmmo: number;
+	maxAmmo: number;
+	damage: number;
 	reloading: boolean;
 	hitMarkerActive: boolean;
-	fire: () => { hit: boolean; enemyMesh: InstanceType<BabylonNamespace['AbstractMesh']> | null };
+	automatic: boolean;
+	fire: () => FireResult;
 	reload: () => void;
-	update: (dt: number) => void;
+	update: (dt: number, triggerHeld: boolean) => void;
 	reset: () => void;
 	dispose: () => void;
 }
@@ -28,8 +42,13 @@ export function createWeaponSystem(
 	scene: InstanceType<BabylonNamespace['Scene']>,
 	player: PlayerController,
 	vfx: VFXManager,
-	gun: GunViewModel
+	gun: GunViewModel,
+	config: WeaponConfig
 ): WeaponSystem {
+	const MAX_AMMO = config.maxAmmo;
+	const RESERVE_AMMO = config.reserveAmmo;
+	const FIRE_RATE = config.fireRate;
+	const RELOAD_TIME = config.reloadTime;
 	let ammo = MAX_AMMO;
 	let reserveAmmo = RESERVE_AMMO;
 	let cooldown = 0;
@@ -38,9 +57,9 @@ export function createWeaponSystem(
 	let hitMarkerActive = false;
 	let hitMarkerTimer = 0;
 
-	function fire(): { hit: boolean; enemyMesh: InstanceType<BabylonNamespace['AbstractMesh']> | null } {
+	function fire(): FireResult {
 		if (cooldown > 0 || reloading || ammo <= 0) {
-			return { hit: false, enemyMesh: null };
+			return { fired: false, hit: false, enemyMesh: null };
 		}
 
 		ammo--;
@@ -67,7 +86,7 @@ export function createWeaponSystem(
 				if (ammo <= 0 && reserveAmmo > 0) {
 					reload();
 				}
-				return { hit: true, enemyMesh: pick.pickedMesh };
+				return { fired: true, hit: true, enemyMesh: pick.pickedMesh };
 			}
 		}
 
@@ -75,7 +94,7 @@ export function createWeaponSystem(
 			reload();
 		}
 
-		return { hit: false, enemyMesh: null };
+		return { fired: true, hit: false, enemyMesh: null };
 	}
 
 	function reload() {
@@ -85,8 +104,20 @@ export function createWeaponSystem(
 		gun.reloadAnim();
 	}
 
-	function update(dt: number) {
-		cooldown = Math.max(cooldown - dt, -dt); // carry at most one frame of overflow
+	function update(dt: number, triggerHeld: boolean) {
+		// Advance the fire cooldown. While the trigger is genuinely held (and the
+		// weapon can fire) it is allowed to go negative — each FIRE_RATE of negative
+		// is one round "owed" this frame, which the game loop discharges via its
+		// catch-up loop. That keeps the effective rate exact even when 1/FIRE_RATE
+		// exceeds the frame rate. When idle or blocked we clamp at 0 so holding fire
+		// later never dumps a banked burst; the floor caps catch-up after a stall.
+		cooldown -= dt;
+		const canFire = triggerHeld && !reloading && ammo > 0;
+		if (!canFire) {
+			if (cooldown < 0) cooldown = 0;
+		} else if (cooldown < -FIRE_RATE * MAX_SHOTS_PER_FRAME) {
+			cooldown = -FIRE_RATE * MAX_SHOTS_PER_FRAME;
+		}
 
 		if (hitMarkerTimer > 0) {
 			hitMarkerTimer -= dt;
@@ -124,8 +155,11 @@ export function createWeaponSystem(
 	return {
 		get ammo() { return ammo; },
 		get reserveAmmo() { return reserveAmmo; },
+		get maxAmmo() { return MAX_AMMO; },
+		get damage() { return config.damage; },
 		get reloading() { return reloading; },
 		get hitMarkerActive() { return hitMarkerActive; },
+		get automatic() { return config.automatic; },
 		fire,
 		reload,
 		update,

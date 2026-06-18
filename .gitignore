@@ -29,3 +29,4 @@ vite.config.ts.timestamp-*
 static/ar_model.glb
 static/floor_texture.png
 static/wall_barrier.glb
+static/banana_blaster.glb

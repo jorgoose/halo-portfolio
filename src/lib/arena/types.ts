@@ -23,6 +23,7 @@ export interface HudSnapshot {
 	shieldRecharging: boolean;
 	gameOver: boolean;
 	paused: boolean;
+	weaponName: string;
 }
 
 export type HudCallback = (snapshot: HudSnapshot) => void;

@@ -30,3 +30,7 @@ static/ar_model.glb
 static/floor_texture.png
 static/wall_barrier.glb
 static/banana_blaster.glb
+static/wall_texture.png
+
+# huragok asset-generation scratch output (concept images, raw models)
+.huragok/

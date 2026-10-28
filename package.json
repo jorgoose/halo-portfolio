@@ -48,5 +48,10 @@
 		"@babylonjs/core": "^8.53.0",
 		"@babylonjs/loaders": "^8.53.0",
 		"three": "^0.178.0"
+	},
+	"overrides": {
+		"@tailwindcss/typography": {
+			"postcss-selector-parser": "6.1.5"
+		}
 	}
 }

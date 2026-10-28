@@ -29,6 +29,8 @@ Use Node.js 22.12+ (or Node.js 24 LTS). Vitest 5 requires Vite 6.4+;
 the browser suite uses the Playwright provider and awaits Svelte rendering.
 Security maintenance stays on SvelteKit 2 and Svelte 5. Do not force the
 SvelteKit 3 migration without coordinating its Vite, plugin, and TypeScript peers.
+Typography's selector parser is scoped to the patched 6.1.5 release to avoid
+selector-parsing denial of service without changing the typography API.
 
 ```bash
 npm install

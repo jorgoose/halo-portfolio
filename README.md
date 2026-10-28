@@ -27,6 +27,8 @@ The pipeline: text prompt → concept image (OpenAI DALL-E 3) → 3D model (Tenc
 
 Use Node.js 22.12+ (or Node.js 24 LTS). Vitest 5 requires Vite 6.4+;
 the browser suite uses the Playwright provider and awaits Svelte rendering.
+Security maintenance stays on SvelteKit 2 and Svelte 5. Do not force the
+SvelteKit 3 migration without coordinating its Vite, plugin, and TypeScript peers.
 
 ```bash
 npm install

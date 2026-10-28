@@ -1,4 +1,4 @@
-import { page } from '@vitest/browser/context';
+import { page } from 'vitest/browser';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
@@ -10,13 +10,13 @@ describe('Home Page (+page.svelte)', () => {
 	});
 
 	it('should render main heading', async () => {
-		render(Page);
+		await render(Page);
 		const heading = page.getByRole('heading', { level: 1 });
 		await expect.element(heading).toBeInTheDocument();
 	});
 
 	it('should render all menu items', async () => {
-		render(Page);
+		await render(Page);
 		
 		// Check that all menu items are present
 		const menuItems = ['ABOUT', 'EXPERIENCE', 'PROJECTS', 'SKILLS', 'CONTACT', 'ARENA'];
@@ -28,7 +28,7 @@ describe('Home Page (+page.svelte)', () => {
 	});
 
 	it('should have correct navigation links', async () => {
-		render(Page);
+		await render(Page);
 		
 		// Check that menu items have correct href attributes
 		const aboutLink = page.getByRole('link', { name: 'ABOUT' });
@@ -47,10 +47,10 @@ describe('Home Page (+page.svelte)', () => {
 	});
 
 	it('should toggle CRT mode', async () => {
-		render(Page);
+		await render(Page);
 		
 		// Find CRT mode toggle button
-		const crtToggle = page.getByText('CRT MODE');
+		const crtToggle = page.getByRole('button', { name: 'CRT Mode: Off' });
 		await expect.element(crtToggle).toBeInTheDocument();
 		
 		// Click to toggle CRT mode
@@ -61,7 +61,7 @@ describe('Home Page (+page.svelte)', () => {
 	});
 
 	it('should render video element', async () => {
-		render(Page);
+		await render(Page);
 		
 		// Wait for video element to be rendered
 		await new Promise(resolve => setTimeout(resolve, 100));
@@ -77,14 +77,14 @@ describe('Home Page (+page.svelte)', () => {
 	});
 
 	it('should render radio widget', async () => {
-		render(Page);
+		await render(Page);
 		
 		const radioWidget = document.querySelector('.radio-widget');
 		expect(radioWidget).toBeInTheDocument();
 	});
 
 	it('should handle keyboard navigation', async () => {
-		render(Page);
+		await render(Page);
 		
 		// Test that menu items are focusable
 		const firstMenuItem = page.getByRole('link', { name: 'ABOUT' });
@@ -102,7 +102,7 @@ describe('Home Page (+page.svelte)', () => {
 		// Set CRT mode in localStorage before rendering
 		localStorage.setItem('crtMode', 'true');
 		
-		render(Page);
+		await render(Page);
 		
 		// Check that CRT mode elements are present
 		const crtBackground = document.querySelector('.crt-background');
@@ -110,7 +110,7 @@ describe('Home Page (+page.svelte)', () => {
 	});
 
 	it('should show video autoplay notification when needed', async () => {
-		render(Page);
+		await render(Page);
 		
 		// This test would need to be adapted based on how you want to test
 		// the video autoplay failure detection

@@ -25,9 +25,20 @@ The pipeline: text prompt → concept image (OpenAI DALL-E 3) → 3D model (Tenc
 
 ## Development
 
+Use Node.js 22.12+ (or Node.js 24 LTS). Vitest 5 requires Vite 6.4+;
+the browser suite uses the Playwright provider and awaits Svelte rendering.
+
 ```bash
 npm install
 npm run dev
+```
+
+```bash
+npx playwright install chromium
+npm run check
+npm run build
+npm run test:unit -- --run --browser.headless
+npm run test:e2e
 ```
 
 Assets are loaded from local `static/` in dev and from a Cloudflare R2 bucket in production (see `src/lib/arena/assetUrl.ts`).

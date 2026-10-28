@@ -12,7 +12,7 @@
   let analyser: AnalyserNode;
   let audioSource: MediaElementAudioSourceNode;
   let animationId: number;
-  let currentSpeaker = initialSpeaker;
+  let currentSpeaker: string = initialSpeaker;
   let audioElement: HTMLAudioElement;
   let fadeOpacity = 1;
   let isTransitioning = false;
